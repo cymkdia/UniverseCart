@@ -88,6 +88,30 @@ struct MainListView: View {
                 onCancel: closePriceSheet
             )
         }
+        .onAppear {
+            importPendingSharedItems()
+        }
+    }
+
+    private func importPendingSharedItems() {
+        let pending = SharedItemStore.loadPending()
+        guard !pending.isEmpty else { return }
+
+        let imported = pending.map { shared in
+            Item(
+                id: shared.id,
+                title: shared.title,
+                imageURL: shared.imageURL,
+                price: nil,
+                productURL: shared.productURL,
+                mall: shared.mall,
+                category: .fashion,
+                listType: .wishlist
+            )
+        }
+
+        items.insert(contentsOf: imported, at: 0)
+        SharedItemStore.clearPending()
     }
 
     private var priceSheetTitle: String {

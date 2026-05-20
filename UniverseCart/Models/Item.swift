@@ -38,7 +38,7 @@ enum ListType: String, CaseIterable, Codable {
     }
 }
 
-struct Item: Identifiable {
+struct Item: Identifiable, Codable {
     let id: UUID
     var title: String
     var imageURL: String?
