@@ -11,6 +11,9 @@ final class ShareViewController: UIViewController {
     private let titleLabel = UILabel()
     private let imageLabel = UILabel()
 
+    private let priceLabel = UILabel()
+    private let priceTextField = UITextField()
+
     private let listTypeLabel = UILabel()
     private let listTypeControl = UISegmentedControl(items: ["위시리스트", "내 장바구니"])
 
@@ -24,6 +27,7 @@ final class ShareViewController: UIViewController {
     private var sharedURL: URL?
     private var extractedTitle: String?
     private var extractedImageURL: String?
+    private var extractedPrice: Int?
 
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -46,6 +50,14 @@ final class ShareViewController: UIViewController {
         imageLabel.font = .preferredFont(forTextStyle: .caption1)
         imageLabel.textColor = .secondaryLabel
 
+        priceLabel.font = .preferredFont(forTextStyle: .subheadline)
+        priceLabel.textColor = .label
+
+        priceTextField.placeholder = "가격 직접 입력 (원)"
+        priceTextField.keyboardType = .numberPad
+        priceTextField.borderStyle = .roundedRect
+        priceTextField.isHidden = true
+
         listTypeLabel.text = "담을 곳"
         listTypeLabel.font = .preferredFont(forTextStyle: .subheadline)
         listTypeControl.selectedSegmentIndex = 0
@@ -67,6 +79,10 @@ final class ShareViewController: UIViewController {
         buttonRow.spacing = 16
         buttonRow.distribution = .fillEqually
 
+        let priceSection = UIStackView(arrangedSubviews: [priceLabel, priceTextField])
+        priceSection.axis = .vertical
+        priceSection.spacing = 8
+
         let listTypeSection = UIStackView(arrangedSubviews: [listTypeLabel, listTypeControl])
         listTypeSection.axis = .vertical
         listTypeSection.spacing = 8
@@ -80,6 +96,7 @@ final class ShareViewController: UIViewController {
             spinner,
             titleLabel,
             imageLabel,
+            priceSection,
             listTypeSection,
             categorySection,
             buttonRow
@@ -121,7 +138,7 @@ final class ShareViewController: UIViewController {
         }
 
         sharedURL = url
-        statusLabel.text = "메타데이터 불러오는 중...\n\(url.host ?? url.absoluteString)"
+        statusLabel.text = "상품 정보 불러오는 중...\n\(url.host ?? url.absoluteString)"
         await fetchMetadata(for: url)
     }
 
@@ -176,20 +193,47 @@ final class ShareViewController: UIViewController {
 
         extractedTitle = metadata.title
         extractedImageURL = metadata.imageURL
+        extractedPrice = metadata.price
 
         titleLabel.text = metadata.title ?? "(제목 자동 추출 실패)"
         imageLabel.text = metadata.imageURL ?? "(이미지 URL 없음)"
-        statusLabel.text = "담을 곳과 카테고리를 선택한 뒤 담기를 눌러주세요"
+
+        if let price = metadata.price {
+            priceLabel.text = "가격: \(formatKRW(price))"
+            priceTextField.isHidden = true
+            priceTextField.text = "\(price)"
+        } else {
+            priceLabel.text = "가격을 찾지 못했어요 — 직접 입력해 주세요"
+            priceTextField.isHidden = false
+            priceTextField.text = ""
+        }
+
+        statusLabel.text = "담을 곳·카테고리 선택 후 담기"
         saveButton.isEnabled = true
+    }
+
+    private func resolvedPriceForSave() -> (price: Int?, priceManual: Bool) {
+        if !priceTextField.isHidden {
+            let manualDigits = priceTextField.text?.filter(\.isNumber) ?? ""
+            if let manual = Int(manualDigits), manual > 0 {
+                return (manual, true)
+            }
+            return (nil, false)
+        }
+        return (extractedPrice, false)
     }
 
     @objc private func didTapSave() {
         guard let url = sharedURL else { return }
 
+        let (price, priceManual) = resolvedPriceForSave()
+
         let pending = SharedPendingItem(
             id: UUID(),
             title: extractedTitle ?? url.host ?? "공유 상품",
             imageURL: extractedImageURL,
+            price: price,
+            priceManual: priceManual,
             productURL: url.absoluteString,
             mall: MallDetector.detect(from: url),
             listType: selectedListType,
@@ -203,5 +247,12 @@ final class ShareViewController: UIViewController {
 
     @objc private func didTapCancel() {
         extensionContext?.cancelRequest(withError: NSError(domain: "UniverseCartShare", code: 0))
+    }
+
+    private func formatKRW(_ value: Int) -> String {
+        let formatter = NumberFormatter()
+        formatter.numberStyle = .decimal
+        let number = formatter.string(from: NSNumber(value: value)) ?? "\(value)"
+        return "₩\(number)"
     }
 }
