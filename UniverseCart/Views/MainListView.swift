@@ -11,6 +11,7 @@ enum CategoryChip: String, CaseIterable {
     case fashion = "패션"
     case home = "홈리빙"
     case food = "식품"
+    case beauty = "뷰티"
 
     var mappedCategory: Category? {
         switch self {
@@ -18,6 +19,7 @@ enum CategoryChip: String, CaseIterable {
         case .fashion: return .fashion
         case .home: return .home
         case .food: return .food
+        case .beauty: return .beauty
         }
     }
 }
@@ -61,6 +63,39 @@ struct MainListView: View {
 
     private var wishlistCount: Int {
         filteredItems.filter { $0.listType == .wishlist }.count
+    }
+
+    private var emptyStateMessage: (title: String, subtitle: String) {
+        if items.isEmpty {
+            return (
+                "아직 담은 상품이 없어요",
+                "쇼핑몰에서 공유하거나 + 버튼으로 추가해 보세요"
+            )
+        }
+
+        switch selectedSegment {
+        case .wishlist:
+            return (
+                "위시리스트가 비어 있어요",
+                "마음에 드는 상품을 위시리스트에 담아보세요"
+            )
+        case .cart:
+            return (
+                "장바구니가 비어 있어요",
+                "구매할 상품을 장바구니에 담아보세요"
+            )
+        case .all:
+            if selectedChip != .all {
+                return (
+                    "\(selectedChip.rawValue) 항목이 없어요",
+                    "다른 카테고리를 선택하거나 상품을 추가해 보세요"
+                )
+            }
+            return (
+                "조건에 맞는 상품이 없어요",
+                "필터를 바꿔보세요"
+            )
+        }
     }
 
     var body: some View {
@@ -173,15 +208,13 @@ struct MainListView: View {
     }
 
     private var summaryBar: some View {
-        HStack(spacing: 8) {
-            Text("담은 것 \(totalCount)개")
-            Text("·")
-            Text("합계 \(currency(totalPrice))")
-            Text("·")
-            Text("위시 \(wishlistCount)개")
+        HStack(spacing: 6) {
+            summaryMetric(label: "담은 것", value: "\(totalCount)", suffix: "개")
+            summaryDot
+            summaryMetric(label: "합계", value: currency(totalPrice))
+            summaryDot
+            summaryMetric(label: "위시", value: "\(wishlistCount)", suffix: "개")
         }
-        .font(.subheadline)
-        .foregroundStyle(UCTheme.textSecondary)
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(12)
         .background(UCTheme.surface)
@@ -190,6 +223,32 @@ struct MainListView: View {
             RoundedRectangle(cornerRadius: 6)
                 .stroke(UCTheme.border, lineWidth: 1)
         )
+    }
+
+    private var summaryDot: some View {
+        Text("·")
+            .font(.subheadline)
+            .foregroundStyle(UCTheme.textLight)
+    }
+
+    private func summaryMetric(label: String, value: String, suffix: String? = nil) -> some View {
+        HStack(spacing: 4) {
+            Text(label)
+                .foregroundStyle(UCTheme.textSecondary)
+
+            HStack(spacing: 0) {
+                Text(value)
+                    .fontWeight(.semibold)
+                    .foregroundStyle(UCTheme.textPrimary)
+
+                if let suffix {
+                    Text(suffix)
+                        .fontWeight(.semibold)
+                        .foregroundStyle(UCTheme.textPrimary)
+                }
+            }
+        }
+        .font(.subheadline)
     }
 
     private var categoryChips: some View {
@@ -216,9 +275,29 @@ struct MainListView: View {
         }
     }
 
+    private var emptyStateView: some View {
+        let message = emptyStateMessage
+
+        return VStack(spacing: 8) {
+            Text(message.title)
+                .font(.headline)
+                .foregroundStyle(UCTheme.textPrimary)
+
+            Text(message.subtitle)
+                .font(.subheadline)
+                .foregroundStyle(UCTheme.textSecondary)
+                .multilineTextAlignment(.center)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        .padding(.top, 48)
+        .padding(.horizontal, 24)
+    }
+
     @ViewBuilder
     private var contentArea: some View {
-        if isGrid {
+        if filteredItems.isEmpty {
+            emptyStateView
+        } else if isGrid {
             ScrollView {
                 LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
                     ForEach(filteredItems) { item in
@@ -295,6 +374,40 @@ struct MainListView: View {
     }
 }
 
+private struct MallBadge: View {
+    let mall: Mall
+
+    var body: some View {
+        if let assetName = mall.logoAssetName {
+            Image(assetName)
+                .resizable()
+                .scaledToFit()
+                .frame(width: 20, height: 20)
+                .padding(.horizontal, 6)
+                .padding(.vertical, 4)
+                .background(Color.white)
+                .clipShape(RoundedRectangle(cornerRadius: 4))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 4)
+                        .stroke(UCTheme.border, lineWidth: 1)
+                )
+                .accessibilityLabel(mall.displayName)
+        } else {
+            Text(mall.displayName)
+                .font(.caption2.weight(.semibold))
+                .foregroundStyle(UCTheme.textPrimary)
+                .padding(.horizontal, 6)
+                .padding(.vertical, 3)
+                .background(UCTheme.surface)
+                .clipShape(RoundedRectangle(cornerRadius: 4))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 4)
+                        .stroke(UCTheme.border, lineWidth: 1)
+                )
+        }
+    }
+}
+
 private struct ListRow: View {
     let item: Item
     let onToggleListType: () -> Void
@@ -319,13 +432,11 @@ private struct ListRow: View {
                 }
             }
 
-            VStack(alignment: .leading, spacing: 4) {
+            VStack(alignment: .leading, spacing: 6) {
                 HStack(spacing: 6) {
-                    Circle()
-                        .fill(UCTheme.mallColor(item.mall))
-                        .frame(width: 8, height: 8)
+                    MallBadge(mall: item.mall)
 
-                    Text("\(item.mall.displayName) · \(item.category.displayName)")
+                    Text(item.category.displayName)
                         .font(.caption)
                         .foregroundStyle(UCTheme.textSecondary)
                 }
@@ -336,17 +447,9 @@ private struct ListRow: View {
                     .lineLimit(2)
 
                 if let price = item.price {
-                    HStack(spacing: 6) {
-                        if item.mall == .wconcept {
-                            Text("₩\(Int(Double(price) * 1.2))")
-                                .font(.caption)
-                                .foregroundStyle(UCTheme.textLight)
-                                .strikethrough()
-                        }
-                        Text(currency(price))
-                            .font(.subheadline.bold())
-                            .foregroundStyle(UCTheme.textPrimary)
-                    }
+                    Text(currency(price))
+                        .font(.subheadline.bold())
+                        .foregroundStyle(UCTheme.textPrimary)
                 } else {
                     Button(action: onTapPrice) {
                         Text("가격 입력하기")
@@ -403,6 +506,14 @@ private struct GridCard: View {
                         .foregroundStyle(.yellow)
                         .padding(6)
                 }
+            }
+
+            HStack(spacing: 6) {
+                MallBadge(mall: item.mall)
+
+                Text(item.category.displayName)
+                    .font(.caption)
+                    .foregroundStyle(UCTheme.textSecondary)
             }
 
             Text(item.title)

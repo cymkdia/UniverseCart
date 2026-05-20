@@ -12,6 +12,17 @@ enum Mall: String, CaseIterable, Codable {
         case .etc: return "기타"
         }
     }
+
+    /// Assets.xcassets 이미지셋 이름 (PNG 파일명과 동일)
+    var logoAssetName: String? {
+        switch self {
+        case .cm29: return "mall_29cm"
+        case .musinsa: return "mall_musinsa"
+        case .wconcept: return "mall_wconcept"
+        case .naver: return "mall_naver"
+        case .etc: return nil
+        }
+    }
 }
 
 enum Category: String, CaseIterable, Codable {
