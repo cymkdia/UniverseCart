@@ -23,6 +23,8 @@ enum CategoryChip: String, CaseIterable {
 }
 
 struct MainListView: View {
+    @Environment(\.scenePhase) private var scenePhase
+
     @State private var items: [Item] = DummyItems.sample
     @State private var selectedSegment: HomeSegment = .all
     @State private var selectedChip: CategoryChip = .all
@@ -90,6 +92,11 @@ struct MainListView: View {
         }
         .onAppear {
             importPendingSharedItems()
+        }
+        .onChange(of: scenePhase) { newPhase in
+            if newPhase == .active {
+                importPendingSharedItems()
+            }
         }
     }
 
