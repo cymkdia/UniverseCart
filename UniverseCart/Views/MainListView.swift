@@ -112,8 +112,8 @@ struct MainListView: View {
                 price: nil,
                 productURL: shared.productURL,
                 mall: shared.mall,
-                category: .fashion,
-                listType: .wishlist
+                category: shared.category,
+                listType: shared.listType
             )
         }
 

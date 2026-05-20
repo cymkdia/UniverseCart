@@ -10,6 +10,13 @@ final class ShareViewController: UIViewController {
     private let statusLabel = UILabel()
     private let titleLabel = UILabel()
     private let imageLabel = UILabel()
+
+    private let listTypeLabel = UILabel()
+    private let listTypeControl = UISegmentedControl(items: ["위시리스트", "내 장바구니"])
+
+    private let categoryLabel = UILabel()
+    private let categoryControl = UISegmentedControl(items: ["패션", "홈리빙", "식품", "뷰티"])
+
     private let saveButton = UIButton(type: .system)
     private let cancelButton = UIButton(type: .system)
     private let spinner = UIActivityIndicatorView(style: .large)
@@ -39,6 +46,14 @@ final class ShareViewController: UIViewController {
         imageLabel.font = .preferredFont(forTextStyle: .caption1)
         imageLabel.textColor = .secondaryLabel
 
+        listTypeLabel.text = "담을 곳"
+        listTypeLabel.font = .preferredFont(forTextStyle: .subheadline)
+        listTypeControl.selectedSegmentIndex = 0
+
+        categoryLabel.text = "카테고리"
+        categoryLabel.font = .preferredFont(forTextStyle: .subheadline)
+        categoryControl.selectedSegmentIndex = 0
+
         saveButton.setTitle("담기", for: .normal)
         saveButton.titleLabel?.font = .boldSystemFont(ofSize: 17)
         saveButton.addTarget(self, action: #selector(didTapSave), for: .touchUpInside)
@@ -52,11 +67,21 @@ final class ShareViewController: UIViewController {
         buttonRow.spacing = 16
         buttonRow.distribution = .fillEqually
 
+        let listTypeSection = UIStackView(arrangedSubviews: [listTypeLabel, listTypeControl])
+        listTypeSection.axis = .vertical
+        listTypeSection.spacing = 8
+
+        let categorySection = UIStackView(arrangedSubviews: [categoryLabel, categoryControl])
+        categorySection.axis = .vertical
+        categorySection.spacing = 8
+
         let stack = UIStackView(arrangedSubviews: [
             statusLabel,
             spinner,
             titleLabel,
             imageLabel,
+            listTypeSection,
+            categorySection,
             buttonRow
         ])
         stack.axis = .vertical
@@ -69,6 +94,19 @@ final class ShareViewController: UIViewController {
             stack.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -20),
             stack.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 20)
         ])
+    }
+
+    private var selectedListType: ListType {
+        listTypeControl.selectedSegmentIndex == 0 ? .wishlist : .cart
+    }
+
+    private var selectedCategory: Category {
+        switch categoryControl.selectedSegmentIndex {
+        case 0: return .fashion
+        case 1: return .home
+        case 2: return .food
+        default: return .beauty
+        }
     }
 
     @MainActor
@@ -141,7 +179,7 @@ final class ShareViewController: UIViewController {
 
         titleLabel.text = metadata.title ?? "(제목 자동 추출 실패)"
         imageLabel.text = metadata.imageURL ?? "(이미지 URL 없음)"
-        statusLabel.text = "확인 후 담기를 눌러주세요"
+        statusLabel.text = "담을 곳과 카테고리를 선택한 뒤 담기를 눌러주세요"
         saveButton.isEnabled = true
     }
 
@@ -154,6 +192,8 @@ final class ShareViewController: UIViewController {
             imageURL: extractedImageURL,
             productURL: url.absoluteString,
             mall: MallDetector.detect(from: url),
+            listType: selectedListType,
+            category: selectedCategory,
             createdAt: Date()
         )
 
