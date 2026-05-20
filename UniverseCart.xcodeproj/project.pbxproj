@@ -8,6 +8,7 @@
 
 /* Begin PBXBuildFile section */
 		FA17951F2FBDD18E002D8A87 /* UniverseCartShare.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = FA1795152FBDD18E002D8A87 /* UniverseCartShare.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		FA1795A22FBDFA3D002D8A87 /* Supabase in Frameworks */ = {isa = PBXBuildFile; productRef = FA17M5022FBDE001002D8A87 /* Supabase */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -111,6 +112,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				FA1795A22FBDFA3D002D8A87 /* Supabase in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -182,6 +184,7 @@
 			);
 			name = UniverseCart;
 			packageProductDependencies = (
+				FA17M5022FBDE001002D8A87 /* Supabase */,
 			);
 			productName = UniverseCart;
 			productReference = FA1794CB2FBDA754002D8A87 /* UniverseCart.app */;
@@ -290,6 +293,9 @@
 			);
 			mainGroup = FA1794C22FBDA754002D8A87;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				FA17M5012FBDE001002D8A87 /* XCRemoteSwiftPackageReference "supabase-swift" */,
+			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = FA1794CC2FBDA754002D8A87 /* Products */;
 			projectDirPath = "";
@@ -756,6 +762,25 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		FA17M5012FBDE001002D8A87 /* XCRemoteSwiftPackageReference "supabase-swift" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/supabase/supabase-swift.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 2.0.0;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		FA17M5022FBDE001002D8A87 /* Supabase */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = FA17M5012FBDE001002D8A87 /* XCRemoteSwiftPackageReference "supabase-swift" */;
+			productName = Supabase;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = FA1794C32FBDA754002D8A87 /* Project object */;
 }

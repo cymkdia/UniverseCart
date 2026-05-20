@@ -25,15 +25,29 @@ enum Mall: String, CaseIterable, Codable {
     }
 }
 
-enum Category: String, CaseIterable, Codable {
-    case fashion, home, food, beauty
+enum Category: String, Codable, CaseIterable {
+    case fashion, beauty, home, appliance, food, sports
+
+    static var allCases: [Category] {
+        [.fashion, .beauty, .home, .appliance, .food, .sports]
+    }
 
     var displayName: String {
         switch self {
         case .fashion: return "패션"
-        case .home: return "홈리빙"
-        case .food: return "식품"
         case .beauty: return "뷰티"
+        case .home: return "홈리빙"
+        case .appliance: return "가전"
+        case .food: return "식품"
+        case .sports: return "스포츠"
+        }
+    }
+
+    /// 메인·공유 카테고리 바 칸 너비 (3글자 라벨은 2글자와 비슷한 비율)
+    var barLayoutWeight: CGFloat {
+        switch self {
+        case .home, .sports: return 2.1
+        default: return 2
         }
     }
 }

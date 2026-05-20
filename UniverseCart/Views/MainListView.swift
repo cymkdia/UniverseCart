@@ -9,25 +9,35 @@ enum HomeSegment: String, CaseIterable {
 enum CategoryChip: String, CaseIterable {
     case all = "전체"
     case fashion = "패션"
-    case home = "홈리빙"
-    case food = "식품"
     case beauty = "뷰티"
+    case home = "홈리빙"
+    case appliance = "가전"
+    case food = "식품"
+    case sports = "스포츠"
 
     var mappedCategory: Category? {
         switch self {
         case .all: return nil
         case .fashion: return .fashion
-        case .home: return .home
-        case .food: return .food
         case .beauty: return .beauty
+        case .home: return .home
+        case .appliance: return .appliance
+        case .food: return .food
+        case .sports: return .sports
         }
+    }
+
+    var layoutWeight: CGFloat {
+        mappedCategory?.barLayoutWeight ?? 2
     }
 }
 
 struct MainListView: View {
     @Environment(\.scenePhase) private var scenePhase
+    @Environment(AuthSession.self) private var auth
 
     @State private var items: [Item] = []
+    @State private var isSyncing = false
     @State private var didLoadStoredItems = false
     @State private var selectedSegment: HomeSegment = .all
     @State private var selectedChip: CategoryChip = .all
@@ -103,17 +113,25 @@ struct MainListView: View {
 
     var body: some View {
         NavigationStack {
-            VStack(spacing: 12) {
-                topBar
-                segmentPicker
-                summaryBar
-                categoryChips
+            VStack(spacing: 0) {
+                VStack(spacing: 12) {
+                    topBar
+                    segmentPicker
+                    summaryBar
+                }
+                .padding(.horizontal, 16)
+                .padding(.top, 12)
+
+                categoryBar
+                    .padding(.top, 8)
+
                 contentArea
+                    .padding(.horizontal, 16)
+                    .padding(.top, 12)
+
                 Spacer(minLength: 0)
             }
-            .padding(.horizontal, 16)
-            .padding(.top, 12)
-            .background(UCTheme.background.ignoresSafeArea())
+            .background(UCColor.bg.ignoresSafeArea())
         }
         .sheet(isPresented: $showingAddSheet) {
             AddItemSheet { newItem in
@@ -147,6 +165,64 @@ struct MainListView: View {
         .onChange(of: items) { _, newItems in
             guard didLoadStoredItems else { return }
             ItemStore.save(newItems)
+            pushToCloudIfNeeded(newItems)
+        }
+        .onChange(of: auth.isAuthenticated) { _, isLoggedIn in
+            guard isLoggedIn, didLoadStoredItems else { return }
+            Task { await syncFromCloud() }
+        }
+    }
+
+    private func pushToCloudIfNeeded(_ newItems: [Item]) {
+        guard auth.isAuthenticated,
+              let client = SupabaseService.shared.client,
+              let userId = auth.currentUserId()
+        else {
+            return
+        }
+
+        Task {
+            do {
+                try await ItemSyncService.replaceAll(
+                    client: client,
+                    userId: userId,
+                    items: newItems
+                )
+            } catch {
+                await MainActor.run {
+                    auth.statusMessage = "동기화 실패: \(error.localizedDescription)"
+                }
+            }
+        }
+    }
+
+    private func syncFromCloud() async {
+        guard !isSyncing,
+              auth.isAuthenticated,
+              let client = SupabaseService.shared.client,
+              let userId = auth.currentUserId()
+        else {
+            return
+        }
+
+        isSyncing = true
+        defer { isSyncing = false }
+
+        do {
+            let remote = try await ItemSyncService.fetchItems(client: client, userId: userId)
+
+            if remote.isEmpty, !items.isEmpty {
+                try await ItemSyncService.replaceAll(
+                    client: client,
+                    userId: userId,
+                    items: items
+                )
+            } else if !remote.isEmpty {
+                items = remote
+                ItemStore.save(remote)
+            }
+        } catch {
+            auth.statusMessage = "불러오기 실패: \(error.localizedDescription)"
         }
     }
 
@@ -208,7 +284,7 @@ struct MainListView: View {
         HStack {
             Text("Universe Cart")
                 .font(.title3.bold())
-                .foregroundStyle(UCTheme.textPrimary)
+                .foregroundStyle(UCColor.textPrimary)
 
             Spacer()
 
@@ -218,9 +294,9 @@ struct MainListView: View {
                 } label: {
                     Image(systemName: "link")
                         .font(.system(size: 18, weight: .semibold))
-                        .foregroundStyle(UCTheme.textPrimary)
+                        .foregroundStyle(UCColor.textPrimary)
                         .frame(width: 36, height: 36)
-                        .background(UCTheme.surface)
+                        .background(UCColor.surface)
                         .clipShape(RoundedRectangle(cornerRadius: 7))
                 }
 
@@ -229,9 +305,9 @@ struct MainListView: View {
                 } label: {
                     Image(systemName: "plus")
                         .font(.system(size: 18, weight: .semibold))
-                        .foregroundStyle(UCTheme.textPrimary)
+                        .foregroundStyle(UCColor.textPrimary)
                         .frame(width: 36, height: 36)
-                        .background(UCTheme.surface)
+                        .background(UCColor.surface)
                         .clipShape(RoundedRectangle(cornerRadius: 7))
                 }
 
@@ -240,9 +316,9 @@ struct MainListView: View {
                 } label: {
                     Image(systemName: isGrid ? "list.bullet" : "square.grid.2x2")
                         .font(.system(size: 18, weight: .semibold))
-                        .foregroundStyle(UCTheme.textPrimary)
+                        .foregroundStyle(UCColor.textPrimary)
                         .frame(width: 36, height: 36)
-                        .background(UCTheme.surface)
+                        .background(UCColor.surface)
                         .clipShape(RoundedRectangle(cornerRadius: 7))
                 }
             }
@@ -259,12 +335,12 @@ struct MainListView: View {
                         .font(.caption)
                         .fontWeight(selectedSegment == segment ? .semibold : .regular)
                         .foregroundStyle(
-                            selectedSegment == segment ? UCTheme.background : UCTheme.textPrimary
+                            selectedSegment == segment ? UCColor.bg : UCColor.textPrimary
                         )
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 10)
                         .background(
-                            selectedSegment == segment ? UCTheme.textPrimary : Color.clear
+                            selectedSegment == segment ? UCColor.textPrimary : Color.clear
                         )
                         .clipShape(RoundedRectangle(cornerRadius: 5))
                 }
@@ -272,11 +348,11 @@ struct MainListView: View {
             }
         }
         .padding(4)
-        .background(UCTheme.surface)
+        .background(UCColor.surface)
         .clipShape(RoundedRectangle(cornerRadius: 7))
         .overlay(
             RoundedRectangle(cornerRadius: 7)
-                .stroke(UCTheme.border, lineWidth: 1)
+                .stroke(UCColor.border, lineWidth: 1)
         )
     }
 
@@ -288,68 +364,111 @@ struct MainListView: View {
             summaryDot
             summaryMetric(label: "위시", value: "\(wishlistCount)", suffix: "개")
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
+        .frame(maxWidth: .infinity, alignment: .center)
         .padding(12)
-        .background(UCTheme.surface)
+        .background(UCColor.surface)
         .clipShape(RoundedRectangle(cornerRadius: 6))
         .overlay(
             RoundedRectangle(cornerRadius: 6)
-                .stroke(UCTheme.border, lineWidth: 1)
+                .stroke(UCColor.border, lineWidth: 1)
         )
     }
 
     private var summaryDot: some View {
         Text("·")
             .font(.subheadline)
-            .foregroundStyle(UCTheme.textLight)
+            .foregroundStyle(UCColor.textDisabled)
     }
 
     private func summaryMetric(label: String, value: String, suffix: String? = nil) -> some View {
         HStack(spacing: 4) {
             Text(label)
-                .foregroundStyle(UCTheme.textSecondary)
+                .foregroundStyle(UCColor.textSecond)
 
             HStack(spacing: 0) {
                 Text(value)
                     .fontWeight(.semibold)
-                    .foregroundStyle(UCTheme.textPrimary)
+                    .foregroundStyle(UCColor.textPrimary)
 
                 if let suffix {
                     Text(suffix)
                         .fontWeight(.semibold)
-                        .foregroundStyle(UCTheme.textPrimary)
+                        .foregroundStyle(UCColor.textPrimary)
                 }
             }
         }
         .font(.subheadline)
     }
 
-    private var categoryChips: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 8) {
-                ForEach(CategoryChip.allCases, id: \.self) { chip in
-                    Button {
-                        withAnimation(.easeInOut(duration: 0.15)) {
-                            selectedChip = chip
-                        }
-                    } label: {
-                        Text(chip.rawValue)
-                            .font(.subheadline)
-                            .fontWeight(selectedChip == chip ? .semibold : .regular)
-                            .foregroundStyle(selectedChip == chip ? UCTheme.background : UCTheme.textPrimary)
-                            .padding(.horizontal, 12)
-                            .padding(.vertical, 8)
-                            .background(selectedChip == chip ? UCTheme.textPrimary : UCTheme.surface)
-                            .clipShape(RoundedRectangle(cornerRadius: 5))
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 5)
-                                    .stroke(UCTheme.border, lineWidth: 1)
-                            )
+    private var categoryBar: some View {
+        let chips = CategoryChip.allCases
+        let horizontalInset: CGFloat = 8
+        let weightSum = chips.map(\.layoutWeight).reduce(0, +)
+
+        return GeometryReader { geo in
+            let width = geo.size.width
+            let dividerPositions = categoryBarDividerPositions(
+                width: width,
+                chips: chips,
+                weightSum: weightSum
+            )
+
+            ZStack(alignment: .topLeading) {
+                HStack(spacing: 0) {
+                    ForEach(chips, id: \.self) { chip in
+                        categoryBarButton(chip)
+                            .frame(width: width * chip.layoutWeight / weightSum)
                     }
-                    .buttonStyle(.plain)
+                }
+
+                ForEach(Array(dividerPositions.enumerated()), id: \.offset) { _, x in
+                    Text("|")
+                        .font(.caption)
+                        .foregroundStyle(UCColor.gray300)
+                        .position(x: x, y: geo.size.height / 2)
                 }
             }
         }
+        .padding(.horizontal, horizontalInset)
+        .frame(height: 40)
+        .overlay(alignment: .bottom) {
+            Rectangle()
+                .fill(UCColor.border)
+                .frame(height: 1)
+        }
+    }
+
+    private func categoryBarDividerPositions(
+        width: CGFloat,
+        chips: [CategoryChip],
+        weightSum: CGFloat
+    ) -> [CGFloat] {
+        var positions: [CGFloat] = []
+        var cumulative: CGFloat = 0
+
+        for index in 0..<chips.count - 1 {
+            cumulative += width * chips[index].layoutWeight / weightSum
+            positions.append(cumulative)
+        }
+
+        return positions
+    }
+
+    private func categoryBarButton(_ chip: CategoryChip) -> some View {
+        Button {
+            withAnimation(.easeInOut(duration: 0.15)) {
+                selectedChip = chip
+            }
+        } label: {
+            Text(chip.rawValue)
+                .font(.caption2)
+                .fontWeight(selectedChip == chip ? .semibold : .regular)
+                .foregroundStyle(selectedChip == chip ? UCColor.textPrimary : UCColor.textSecond)
+                .lineLimit(1)
+                .minimumScaleFactor(0.6)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+        }
+        .buttonStyle(.plain)
     }
 
     private var emptyStateView: some View {
@@ -358,11 +477,11 @@ struct MainListView: View {
         return VStack(spacing: 8) {
             Text(message.title)
                 .font(.headline)
-                .foregroundStyle(UCTheme.textPrimary)
+                .foregroundStyle(UCColor.textPrimary)
 
             Text(message.subtitle)
                 .font(.subheadline)
-                .foregroundStyle(UCTheme.textSecondary)
+                .foregroundStyle(UCColor.textSecond)
                 .multilineTextAlignment(.center)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
@@ -398,7 +517,7 @@ struct MainListView: View {
                         onTapPrice: { openPriceEditor(for: item.id) }
                     )
                     .listRowSeparator(.hidden)
-                    .listRowInsets(EdgeInsets(top: 6, leading: 0, bottom: 6, trailing: 0))
+                    .listRowInsets(EdgeInsets(top: 5, leading: 0, bottom: 5, trailing: 0))
                     .listRowBackground(Color.clear)
                 }
                 .onDelete(perform: deleteItems)
@@ -458,14 +577,14 @@ private struct JustAddedBadge: View {
     var body: some View {
         Text("방금 담음")
             .font(.caption2.weight(.semibold))
-            .foregroundStyle(UCTheme.textPrimary)
+            .foregroundStyle(UCColor.textPrimary)
             .padding(.horizontal, 6)
             .padding(.vertical, 3)
-            .background(UCTheme.surface)
+            .background(UCColor.surface)
             .clipShape(RoundedRectangle(cornerRadius: 4))
             .overlay(
                 RoundedRectangle(cornerRadius: 4)
-                    .stroke(UCTheme.border, lineWidth: 1)
+                    .stroke(UCColor.border, lineWidth: 1)
             )
     }
 }
@@ -478,30 +597,30 @@ private struct MallBadge: View {
             Image(assetName)
                 .resizable()
                 .scaledToFit()
-                .frame(width: 21, height: 21)
+                .frame(width: 19, height: 19)
                 .accessibilityLabel(mall.displayName)
         } else {
             Text(mall.displayName)
                 .font(.caption2.weight(.semibold))
-                .foregroundStyle(UCTheme.textPrimary)
+                .foregroundStyle(UCColor.textPrimary)
                 .padding(.horizontal, 6)
                 .padding(.vertical, 3)
-                .background(UCTheme.surface)
+                .background(UCColor.surface)
                 .clipShape(RoundedRectangle(cornerRadius: 4))
                 .overlay(
                     RoundedRectangle(cornerRadius: 4)
-                        .stroke(UCTheme.border, lineWidth: 1)
+                        .stroke(UCColor.border, lineWidth: 1)
                 )
         }
     }
 }
 
 private enum ListRowLayout {
-    static let thumbnailSize: CGFloat = 72
-    static let metaRowHeight: CGFloat = 24
+    static let thumbnailSize: CGFloat = 68
+    static let metaRowHeight: CGFloat = 22
     static let titleHeight: CGFloat = 40
     static let priceRowHeight: CGFloat = 22
-    static let textSpacing: CGFloat = 6
+    static let textSpacing: CGFloat = 4
     static let padding: CGFloat = 12
 
     static var infoHeight: CGFloat {
@@ -523,11 +642,11 @@ private struct ListRow: View {
         HStack(alignment: .top, spacing: 12) {
             ZStack(alignment: .topLeading) {
                 RoundedRectangle(cornerRadius: 6)
-                    .fill(UCTheme.surface)
+                    .fill(UCColor.surface)
                     .frame(width: ListRowLayout.thumbnailSize, height: ListRowLayout.thumbnailSize)
                     .overlay(
                         RoundedRectangle(cornerRadius: 6)
-                            .stroke(UCTheme.border, lineWidth: 1)
+                            .stroke(UCColor.border, lineWidth: 1)
                     )
 
                 if item.listType == .wishlist {
@@ -544,7 +663,7 @@ private struct ListRow: View {
 
                     Text(item.category.displayName)
                         .font(.caption)
-                        .foregroundStyle(UCTheme.textSecondary)
+                        .foregroundStyle(UCColor.textSecond)
                         .lineLimit(1)
 
                     Spacer(minLength: 0)
@@ -558,7 +677,7 @@ private struct ListRow: View {
 
                 Text(item.title)
                     .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(UCTheme.textPrimary)
+                    .foregroundStyle(UCColor.textPrimary)
                     .lineLimit(2)
                     .multilineTextAlignment(.leading)
                     .frame(
@@ -571,13 +690,13 @@ private struct ListRow: View {
                 Group {
                     if let price = item.price {
                         Text(currency(price))
-                            .font(.subheadline.bold())
-                            .foregroundStyle(UCTheme.textPrimary)
+                            .font(.footnote)
+                            .foregroundStyle(UCColor.textPrimary)
                     } else {
                         Button(action: onTapPrice) {
                             Text("가격 입력하기")
-                                .font(.subheadline.weight(.semibold))
-                                .foregroundStyle(UCTheme.textSecondary)
+                                .font(.footnote)
+                                .foregroundStyle(UCColor.textSecond)
                         }
                         .buttonStyle(.plain)
                     }
@@ -593,7 +712,7 @@ private struct ListRow: View {
 
             Button(action: onToggleListType) {
                 Image(systemName: item.listType == .wishlist ? "heart.fill" : "heart")
-                    .foregroundStyle(item.listType == .wishlist ? .pink : UCTheme.textLight)
+                    .foregroundStyle(item.listType == .wishlist ? UCColor.accent : UCColor.textDisabled)
             }
             .buttonStyle(.plain)
             .frame(height: ListRowLayout.thumbnailSize, alignment: .center)
@@ -604,7 +723,7 @@ private struct ListRow: View {
         .clipShape(RoundedRectangle(cornerRadius: 6))
         .overlay(
             RoundedRectangle(cornerRadius: 6)
-                .stroke(UCTheme.border, lineWidth: 1)
+                .stroke(UCColor.border, lineWidth: 1)
         )
     }
 
@@ -618,11 +737,11 @@ private struct ListRow: View {
 
 private enum GridCardLayout {
     static let thumbnailHeight: CGFloat = 120
-    static let metaRowHeight: CGFloat = 23
+    static let metaRowHeight: CGFloat = 22
     static let titleHeight: CGFloat = 40
     static let priceRowHeight: CGFloat = 22
-    static let sectionSpacing: CGFloat = 8
-    static let padding: CGFloat = 10
+    static let sectionSpacing: CGFloat = 4
+    static let padding: CGFloat = 12
 
     static var cardHeight: CGFloat {
         thumbnailHeight
@@ -643,12 +762,12 @@ private struct GridCard: View {
         VStack(alignment: .leading, spacing: GridCardLayout.sectionSpacing) {
             ZStack(alignment: .topLeading) {
                 RoundedRectangle(cornerRadius: 6)
-                    .fill(UCTheme.surface)
+                    .fill(UCColor.surface)
                     .frame(height: GridCardLayout.thumbnailHeight)
                     .frame(maxWidth: .infinity)
                     .overlay(
                         RoundedRectangle(cornerRadius: 6)
-                            .stroke(UCTheme.border, lineWidth: 1)
+                            .stroke(UCColor.border, lineWidth: 1)
                     )
 
                 if item.listType == .wishlist {
@@ -676,7 +795,7 @@ private struct GridCard: View {
 
                 Text(item.category.displayName)
                     .font(.caption)
-                    .foregroundStyle(UCTheme.textSecondary)
+                    .foregroundStyle(UCColor.textSecond)
                     .lineLimit(1)
             }
             .padding(.top, 2)
@@ -684,7 +803,7 @@ private struct GridCard: View {
 
             Text(item.title)
                 .font(.subheadline.weight(.semibold))
-                .foregroundStyle(UCTheme.textPrimary)
+                .foregroundStyle(UCColor.textPrimary)
                 .lineLimit(2)
                 .multilineTextAlignment(.leading)
                 .frame(
@@ -697,13 +816,13 @@ private struct GridCard: View {
             Group {
                 if let price = item.price {
                     Text(currency(price))
-                        .font(.subheadline.bold())
-                        .foregroundStyle(UCTheme.textPrimary)
+                        .font(.footnote)
+                        .foregroundStyle(UCColor.textPrimary)
                 } else {
                     Button(action: onTapPrice) {
                         Text("가격 입력하기")
-                            .font(.subheadline.weight(.semibold))
-                            .foregroundStyle(UCTheme.textSecondary)
+                            .font(.footnote)
+                            .foregroundStyle(UCColor.textSecond)
                     }
                     .buttonStyle(.plain)
                 }
@@ -721,7 +840,7 @@ private struct GridCard: View {
         .clipShape(RoundedRectangle(cornerRadius: 6))
         .overlay(
             RoundedRectangle(cornerRadius: 6)
-                .stroke(UCTheme.border, lineWidth: 1)
+                .stroke(UCColor.border, lineWidth: 1)
         )
     }
 
@@ -787,7 +906,7 @@ private struct AddFromURLSheet: View {
                             .font(.subheadline.weight(.semibold))
 
                         Text(detectedMall.displayName)
-                            .foregroundStyle(UCTheme.textSecondary)
+                            .foregroundStyle(UCColor.textSecond)
 
                         TextField("가격(숫자만)", text: $priceText)
                             .keyboardType(.numberPad)
@@ -966,7 +1085,7 @@ private struct PriceInputSheet: View {
             Form {
                 Section("상품") {
                     Text(title)
-                        .foregroundStyle(UCTheme.textSecondary)
+                        .foregroundStyle(UCColor.textSecond)
                 }
 
                 Section("가격") {

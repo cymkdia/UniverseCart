@@ -1,0 +1,104 @@
+import Foundation
+import Supabase
+
+@MainActor
+@Observable
+final class AuthSession {
+    var isConfigured = SupabaseConfig.isConfigured
+    var isAuthenticated = false
+    var userEmail: String?
+    var isBusy = false
+    var statusMessage: String?
+
+    private var authListenerTask: Task<Void, Never>?
+
+    init() {
+        startAuthListenerIfNeeded()
+        refreshFromCurrentSession()
+    }
+
+    func signIn(email: String, password: String) async {
+        await runAuthAction(message: "로그인했어요") {
+            guard let client = SupabaseService.shared.client else {
+                throw AuthSessionError.notConfigured
+            }
+
+            _ = try await client.auth.signIn(email: email, password: password)
+        }
+    }
+
+    func signUp(email: String, password: String) async {
+        await runAuthAction(message: "회원가입이 완료됐어요. 이메일 확인이 켜져 있으면 메일함을 확인해 주세요.") {
+            guard let client = SupabaseService.shared.client else {
+                throw AuthSessionError.notConfigured
+            }
+
+            _ = try await client.auth.signUp(email: email, password: password)
+        }
+    }
+
+    func signOut() async {
+        await runAuthAction(message: "로그아웃했어요") {
+            guard let client = SupabaseService.shared.client else {
+                throw AuthSessionError.notConfigured
+            }
+
+            try await client.auth.signOut()
+        }
+    }
+
+    func currentUserId() -> UUID? {
+        SupabaseService.shared.client?.auth.currentUser?.id
+    }
+
+    private func startAuthListenerIfNeeded() {
+        guard authListenerTask == nil,
+              let client = SupabaseService.shared.client
+        else {
+            return
+        }
+
+        authListenerTask = Task {
+            for await (_, session) in await client.auth.authStateChanges {
+                apply(session: session)
+            }
+        }
+    }
+
+    private func refreshFromCurrentSession() {
+        apply(session: SupabaseService.shared.client?.auth.currentSession)
+    }
+
+    private func apply(session: Session?) {
+        isAuthenticated = session != nil
+        userEmail = session?.user.email
+    }
+
+    private func runAuthAction(
+        message: String,
+        action: () async throws -> Void
+    ) async {
+        isBusy = true
+        statusMessage = nil
+        defer { isBusy = false }
+
+        do {
+            try await action()
+            refreshFromCurrentSession()
+            statusMessage = message
+        } catch {
+            statusMessage = error.localizedDescription
+        }
+    }
+}
+
+enum AuthSessionError: LocalizedError {
+    case notConfigured
+
+    var errorDescription: String? {
+        switch self {
+        case .notConfigured:
+            return "Supabase 설정이 필요해요. SupabaseSecrets.plist를 확인해 주세요."
+        }
+    }
+}

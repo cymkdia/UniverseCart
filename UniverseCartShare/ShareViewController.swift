@@ -15,10 +15,10 @@ final class ShareViewController: UIViewController {
     private let priceTextField = UITextField()
 
     private let listTypeLabel = UILabel()
-    private let listTypeControl = UISegmentedControl(items: ["위시리스트", "내 장바구니"])
+    private let listTypeBar = ShareSegmentBar(titles: ["위시리스트", "내 장바구니"])
 
     private let categoryLabel = UILabel()
-    private let categoryControl = UISegmentedControl(items: ["패션", "홈리빙", "식품", "뷰티"])
+    private let categoryBar = ShareCategoryBarView()
 
     private let saveButton = UIButton(type: .system)
     private let cancelButton = UIButton(type: .system)
@@ -31,7 +31,7 @@ final class ShareViewController: UIViewController {
 
     override func viewDidLoad() {
         super.viewDidLoad()
-        view.backgroundColor = .systemBackground
+        view.backgroundColor = UCUIKitColor.bg
         setupUI()
 
         Task {
@@ -42,16 +42,18 @@ final class ShareViewController: UIViewController {
     private func setupUI() {
         statusLabel.numberOfLines = 0
         statusLabel.font = .preferredFont(forTextStyle: .body)
+        statusLabel.textColor = UCUIKitColor.textSecond
 
         titleLabel.numberOfLines = 2
         titleLabel.font = .preferredFont(forTextStyle: .headline)
+        titleLabel.textColor = UCUIKitColor.textPrimary
 
         imageLabel.numberOfLines = 2
         imageLabel.font = .preferredFont(forTextStyle: .caption1)
-        imageLabel.textColor = .secondaryLabel
+        imageLabel.textColor = UCUIKitColor.textSecond
 
         priceLabel.font = .preferredFont(forTextStyle: .subheadline)
-        priceLabel.textColor = .label
+        priceLabel.textColor = UCUIKitColor.textPrimary
 
         priceTextField.placeholder = "가격 직접 입력 (원)"
         priceTextField.keyboardType = .numberPad
@@ -59,19 +61,21 @@ final class ShareViewController: UIViewController {
         priceTextField.isHidden = true
 
         listTypeLabel.text = "담을 곳"
-        listTypeLabel.font = .preferredFont(forTextStyle: .subheadline)
-        listTypeControl.selectedSegmentIndex = 0
+        listTypeLabel.font = .systemFont(ofSize: 13, weight: .medium)
+        listTypeLabel.textColor = UCUIKitColor.textPrimary
 
-        categoryLabel.text = "카테고리"
-        categoryLabel.font = .preferredFont(forTextStyle: .subheadline)
-        categoryControl.selectedSegmentIndex = 0
+        categoryLabel.text = "카테고리 선택"
+        categoryLabel.font = .systemFont(ofSize: 13, weight: .medium)
+        categoryLabel.textColor = UCUIKitColor.textPrimary
 
         saveButton.setTitle("담기", for: .normal)
         saveButton.titleLabel?.font = .boldSystemFont(ofSize: 17)
+        saveButton.tintColor = UIColor(hex: "FF4800")
         saveButton.addTarget(self, action: #selector(didTapSave), for: .touchUpInside)
         saveButton.isEnabled = false
 
         cancelButton.setTitle("취소", for: .normal)
+        cancelButton.tintColor = UCUIKitColor.textSecond
         cancelButton.addTarget(self, action: #selector(didTapCancel), for: .touchUpInside)
 
         let buttonRow = UIStackView(arrangedSubviews: [cancelButton, saveButton])
@@ -83,47 +87,51 @@ final class ShareViewController: UIViewController {
         priceSection.axis = .vertical
         priceSection.spacing = 8
 
-        let listTypeSection = UIStackView(arrangedSubviews: [listTypeLabel, listTypeControl])
+        let listTypeSection = UIStackView(arrangedSubviews: [listTypeLabel, listTypeBar])
         listTypeSection.axis = .vertical
         listTypeSection.spacing = 8
 
-        let categorySection = UIStackView(arrangedSubviews: [categoryLabel, categoryControl])
-        categorySection.axis = .vertical
-        categorySection.spacing = 8
+        categoryBar.translatesAutoresizingMaskIntoConstraints = false
+        buttonRow.translatesAutoresizingMaskIntoConstraints = false
 
-        let stack = UIStackView(arrangedSubviews: [
+        let upperStack = UIStackView(arrangedSubviews: [
             statusLabel,
             spinner,
             titleLabel,
             imageLabel,
             priceSection,
             listTypeSection,
-            categorySection,
-            buttonRow
+            categoryLabel
         ])
-        stack.axis = .vertical
-        stack.spacing = 12
-        stack.translatesAutoresizingMaskIntoConstraints = false
+        upperStack.axis = .vertical
+        upperStack.spacing = 12
+        upperStack.translatesAutoresizingMaskIntoConstraints = false
 
-        view.addSubview(stack)
+        view.addSubview(upperStack)
+        view.addSubview(categoryBar)
+        view.addSubview(buttonRow)
+
         NSLayoutConstraint.activate([
-            stack.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 20),
-            stack.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -20),
-            stack.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 20)
+            upperStack.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 20),
+            upperStack.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -20),
+            upperStack.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 20),
+
+            categoryBar.topAnchor.constraint(equalTo: upperStack.bottomAnchor, constant: 4),
+            categoryBar.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            categoryBar.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+
+            buttonRow.topAnchor.constraint(equalTo: categoryBar.bottomAnchor, constant: 16),
+            buttonRow.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 20),
+            buttonRow.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -20)
         ])
     }
 
     private var selectedListType: ListType {
-        listTypeControl.selectedSegmentIndex == 0 ? .wishlist : .cart
+        listTypeBar.selectedIndex == 0 ? .wishlist : .cart
     }
 
     private var selectedCategory: Category {
-        switch categoryControl.selectedSegmentIndex {
-        case 0: return .fashion
-        case 1: return .home
-        case 2: return .food
-        default: return .beauty
-        }
+        categoryBar.selectedCategory
     }
 
     @MainActor

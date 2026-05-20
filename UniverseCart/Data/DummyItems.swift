@@ -61,6 +61,26 @@ enum DummyItems {
             mall: .cm29,
             category: .home,
             listType: .cart
+        ),
+        Item(
+            id: UUID(),
+            title: "네이버 스마트스토어 무선 이어폰",
+            imageURL: nil,
+            price: 159000,
+            productURL: "https://smartstore.naver.com",
+            mall: .naver,
+            category: .appliance,
+            listType: .wishlist
+        ),
+        Item(
+            id: UUID(),
+            title: "무신사 러닝화",
+            imageURL: nil,
+            price: 109000,
+            productURL: "https://www.musinsa.com",
+            mall: .musinsa,
+            category: .sports,
+            listType: .cart
         )
     ]
 }
