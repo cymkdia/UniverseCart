@@ -79,6 +79,13 @@
 			);
 			target = FA1795142FBDD18E002D8A87 /* UniverseCartShare */;
 		};
+		FA17954B2FBDD7DC002D8A87 /* Exceptions for "UniverseCart" folder in "UniverseCart" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = FA1794CA2FBDA754002D8A87 /* UniverseCart */;
+		};
 /* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -86,6 +93,7 @@
 			isa = PBXFileSystemSynchronizedRootGroup;
 			exceptions = (
 				FA1795492FBDD7DC002D8A87 /* Exceptions for "UniverseCart" folder in "UniverseCartShare" target */,
+				FA17954B2FBDD7DC002D8A87 /* Exceptions for "UniverseCart" folder in "UniverseCart" target */,
 			);
 			path = UniverseCart;
 			sourceTree = "<group>";

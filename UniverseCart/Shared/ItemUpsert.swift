@@ -15,8 +15,7 @@ enum ItemUpsert {
 
         if let existingIndex = index(matching: normalized.productURL, in: items) {
             let existingID = items[existingIndex].id
-            var merged = merge(existing: items[existingIndex], incoming: normalized)
-            merged.id = existingID
+            let merged = merge(existing: items[existingIndex], incoming: normalized)
 
             items.remove(at: existingIndex)
             if moveUpdatedToTop {

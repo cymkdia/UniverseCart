@@ -65,6 +65,12 @@ https://pnoqhvoqedkjgelollug.supabase.co/auth/v1/callback
 (본인 Supabase 프로젝트 URL로 바꾸기 — `SUPABASE_URL` + `/auth/v1/callback`)
 
 5. **REST API 키** 복사
+6. **제품 설정 → 카카오 로그인 → 동의항목** (KOE205 방지):
+   - `닉네임(profile_nickname)` — **ON** (선택 동의 OK)
+   - `프로필 사진(profile_image)` — **ON**
+   - `카카오계정(이메일)` — **OFF** (비즈 앱이 아니면 OFF, 아래 Supabase 설정과 짝)
+
+**OpenID Connect** (일반 화면 두 번째 스위치): Supabase 웹 OAuth만 쓸 때는 **OFF** 로 두어도 됩니다. ON은 OIDC·ID 토큰용입니다.
 
 ### B. Supabase
 
@@ -87,9 +93,35 @@ https://pnoqhvoqedkjgelollug.supabase.co/auth/v1/callback
 | 증상 | 확인 |
 |------|------|
 | Apple 버튼 눌러도 반응 없음 | Sign In with Apple capability, 실기기 Apple ID |
+| 카카오 화면은 뜨는데 로그인 안 됨 | 아래 **카카오 체크리스트** |
 | 카카오 후 앱으로 안 돌아옴 | Supabase Redirect URLs + Kakao Redirect URI |
 | `Provider not enabled` | Supabase에서 해당 Provider Enable |
 | 시뮬레이터 카카오 실패 | 실기기에서 먼저 테스트 |
+
+### 카카오 로그인 체크리스트 (화면은 뜨는데 실패할 때)
+
+**Supabase → Authentication → URL Configuration**
+
+```text
+cymk.UniverseCart://auth-callback
+```
+
+**Supabase → Authentication → Providers → Kakao**
+
+- Enable ON
+- REST API Key / Client Secret (카카오와 동일)
+- **Allow users without an email** → ON (이메일 동의 안 쓸 때)
+
+**Kakao → REST API 키 상세**
+
+```text
+https://pnoqhvoqedkjgelollug.supabase.co/auth/v1/callback
+```
+
+- Client Secret **활성화**
+- **제품 설정 → 카카오 로그인 → 일반** → 상태 **ON**
+
+**앱 프로필 하단**에 나오는 회색/빨간 안내 문구를 그대로 확인하세요.
 
 ---
 

@@ -29,7 +29,8 @@ enum ProductURLNormalizer {
         components.host = components.host?.lowercased()
         components.fragment = nil
 
-        if var path = components.percentEncodedPath, path.count > 1, path.hasSuffix("/") {
+        var path = components.percentEncodedPath
+        if path.count > 1, path.hasSuffix("/") {
             path.removeLast()
             components.percentEncodedPath = path
         }

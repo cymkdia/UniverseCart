@@ -56,15 +56,30 @@ final class AuthSession {
     }
 
     func signInWithKakao() async {
-        await runAuthAction(message: "카카오로 로그인했어요") {
-            guard let client = SupabaseService.shared.client else {
-                throw AuthSessionError.notConfigured
-            }
+        isBusy = true
+        statusMessage = nil
+        defer { isBusy = false }
 
+        guard let client = SupabaseService.shared.client else {
+            statusMessage = AuthSessionError.notConfigured.errorDescription
+            return
+        }
+
+        do {
+            // account_email·openid 는 개인 앱에서 KOE205 원인이 될 수 있어 닉네임·프로필만 요청
             _ = try await client.auth.signInWithOAuth(
                 provider: .kakao,
-                redirectTo: AuthRedirect.callbackURL
-            )
+                redirectTo: AuthRedirect.callbackURL,
+                scopes: "profile_nickname profile_image"
+            ) { session in
+                session.prefersEphemeralWebBrowserSession = false
+            }
+            refreshFromCurrentSession()
+            statusMessage = isAuthenticated
+                ? "카카오로 로그인했어요."
+                : "로그인이 끝나지 않았어요. Supabase Redirect URLs를 확인해 주세요."
+        } catch {
+            statusMessage = friendlyAuthMessage(for: error)
         }
     }
 
@@ -74,6 +89,9 @@ final class AuthSession {
         do {
             _ = try await client.auth.session(from: url)
             refreshFromCurrentSession()
+            if isAuthenticated {
+                statusMessage = "카카오로 로그인했어요."
+            }
         } catch {
             statusMessage = friendlyAuthMessage(for: error)
         }
@@ -170,12 +188,36 @@ final class AuthSession {
             return "로그인을 취소했어요."
         }
 
-        let text = error.localizedDescription
+        let text = [
+            error.localizedDescription,
+            (error as NSError).localizedFailureReason,
+            (error as NSError).userInfo["message"] as? String,
+        ]
+        .compactMap { $0 }
+        .joined(separator: " ")
+
         if text.localizedCaseInsensitiveContains("cancel") {
             return "로그인을 취소했어요."
         }
+        if text.contains("KOE205") || text.localizedCaseInsensitiveContains("invalid_scope") {
+            return "카카오 동의항목이 맞지 않아요. 동의항목에서 닉네임·프로필 사진을 켜고, Supabase Kakao에서 ‘이메일 없이 허용’을 ON 해 주세요."
+        }
+        if text.contains("KOE006") || text.localizedCaseInsensitiveContains("redirect_uri") {
+            return "카카오 Redirect URI가 맞지 않아요. Supabase callback 주소가 카카오에 등록됐는지 확인해 주세요."
+        }
+        if text.contains("KOE004") {
+            return "카카오 로그인이 꺼져 있어요. 카카오 개발자 → 제품 설정 → 카카오 로그인 → ON"
+        }
+        if text.localizedCaseInsensitiveContains("provider")
+            && text.localizedCaseInsensitiveContains("not enabled") {
+            return "Supabase → Authentication → Providers → Kakao를 켜 주세요."
+        }
+        if text.localizedCaseInsensitiveContains("pkce")
+            || text.localizedCaseInsensitiveContains("redirect") {
+            return "앱으로 돌아오지 못했어요. Supabase Redirect URLs에 cymk.UniverseCart://auth-callback 가 있는지 확인해 주세요."
+        }
 
-        return text
+        return text.isEmpty ? "로그인에 실패했어요. 다시 시도해 주세요." : text
     }
 }
 
