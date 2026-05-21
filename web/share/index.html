@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Universe Cart · 위시리스트</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="./config.js"></script>
+    <style>
+      * { box-sizing: border-box; margin: 0; padding: 0; }
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        background: #fff;
+        color: #19191a;
+        padding: 24px 16px 48px;
+      }
+      .wrap { max-width: 420px; margin: 0 auto; }
+      .eyebrow {
+        font-size: 11px;
+        letter-spacing: 1px;
+        text-transform: uppercase;
+        color: #5d5d5d;
+        margin-bottom: 6px;
+      }
+      h1 {
+        font-size: 24px;
+        font-weight: 700;
+        letter-spacing: -0.5px;
+        margin-bottom: 16px;
+      }
+      .summary {
+        background: #f4f4f4;
+        border: 1px solid #e4e4e4;
+        border-radius: 8px;
+        padding: 12px 14px;
+        font-size: 14px;
+        color: #5d5d5d;
+        margin-bottom: 20px;
+      }
+      .summary strong { color: #19191a; }
+      .list { display: flex; flex-direction: column; gap: 0; }
+      .item {
+        display: flex;
+        gap: 12px;
+        padding: 14px 0;
+        border-bottom: 1px solid #e4e4e4;
+      }
+      .thumb {
+        width: 68px;
+        height: 68px;
+        border-radius: 6px;
+        background: #f4f4f4;
+        flex-shrink: 0;
+        overflow: hidden;
+      }
+      .thumb img { width: 100%; height: 100%; object-fit: cover; }
+      .body { flex: 1; min-width: 0; }
+      .meta {
+        font-size: 11px;
+        color: #5d5d5d;
+        margin-bottom: 4px;
+      }
+      .title {
+        font-size: 14px;
+        font-weight: 600;
+        line-height: 1.35;
+        margin-bottom: 6px;
+      }
+      .price { font-size: 13px; font-weight: 600; }
+      .muted { color: #5d5d5d; font-weight: 400; }
+      .state {
+        text-align: center;
+        padding: 48px 12px;
+        color: #5d5d5d;
+        font-size: 14px;
+        line-height: 1.5;
+      }
+      .error { color: #d53f00; }
+      footer {
+        margin-top: 28px;
+        text-align: center;
+        font-size: 11px;
+        color: #a0a0a0;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <div class="eyebrow">Universe Cart</div>
+      <h1 id="ownerTitle">위시리스트</h1>
+      <div class="summary" id="summary">불러오는 중…</div>
+      <div id="content" class="state">잠시만 기다려 주세요.</div>
+      <footer>공개된 위시리스트만 표시됩니다.</footer>
+    </div>
+
+    <script>
+      const mallNames = {
+        cm29: "29CM",
+        musinsa: "무신사",
+        wconcept: "W컨셉",
+        naver: "네이버",
+        etc: "기타",
+      };
+
+      const categoryNames = {
+        fashion: "패션",
+        beauty: "뷰티",
+        home: "홈리빙",
+        appliance: "가전",
+        food: "식품",
+        sports: "스포츠",
+      };
+
+      function formatPrice(value) {
+        if (value == null) return "가격 미입력";
+        return "₩" + Number(value).toLocaleString("ko-KR");
+      }
+
+      function getSlug() {
+        const params = new URLSearchParams(window.location.search);
+        return params.get("slug");
+      }
+
+      function renderItems(ownerName, items) {
+        const title = document.getElementById("ownerTitle");
+        const summary = document.getElementById("summary");
+        const content = document.getElementById("content");
+
+        title.textContent = ownerName
+          ? `${ownerName}님의 위시리스트`
+          : "위시리스트";
+
+        const priced = items.filter((i) => i.price != null);
+        const total = priced.reduce((sum, i) => sum + i.price, 0);
+
+        summary.innerHTML =
+          `담은 것 <strong>${items.length}개</strong>` +
+          (priced.length
+            ? ` · 합계 <strong>₩${total.toLocaleString("ko-KR")}</strong>`
+            : "");
+
+        if (!items.length) {
+          content.className = "state";
+          content.textContent = "아직 공개된 위시 상품이 없어요.";
+          return;
+        }
+
+        content.className = "list";
+        content.innerHTML = items
+          .map((item) => {
+            const mall = mallNames[item.mall] || item.mall;
+            const cat = categoryNames[item.category] || item.category;
+            const thumb = item.image_url
+              ? `<img src="${item.image_url}" alt="" />`
+              : "";
+            return `
+              <article class="item">
+                <div class="thumb">${thumb}</div>
+                <div class="body">
+                  <div class="meta">${mall} · ${cat}</div>
+                  <div class="title">${item.title}</div>
+                  <div class="price">${formatPrice(item.price)}</div>
+                </div>
+              </article>
+            `;
+          })
+          .join("");
+      }
+
+      async function main() {
+        const content = document.getElementById("content");
+        const slug = getSlug();
+        const config = window.UNIVERSE_CART_CONFIG;
+
+        if (!slug) {
+          content.className = "state error";
+          content.textContent =
+            "공유 링크가 올바르지 않아요. (?slug=주소) 가 포함된 링크인지 확인해 주세요.";
+          return;
+        }
+
+        if (!config?.SUPABASE_URL || !config?.SUPABASE_ANON_KEY) {
+          content.className = "state error";
+          content.textContent =
+            "config.js 가 없어요. config.example.js 를 복사해 config.js 를 만들고 Supabase URL·키를 넣어 주세요.";
+          return;
+        }
+
+        const supabase = window.supabase.createClient(
+          config.SUPABASE_URL,
+          config.SUPABASE_ANON_KEY
+        );
+
+        try {
+          const { data: profile, error: profileError } = await supabase
+            .from("profiles")
+            .select("user_id, display_name, share_enabled")
+            .eq("share_slug", slug)
+            .eq("share_enabled", true)
+            .maybeSingle();
+
+          if (profileError) throw profileError;
+          if (!profile) {
+            content.className = "state";
+            content.textContent =
+              "공유가 꺼져 있거나 링크를 찾을 수 없어요.";
+            document.getElementById("summary").textContent = "";
+            return;
+          }
+
+          const { data: items, error: itemsError } = await supabase
+            .from("items")
+            .select(
+              "id, title, image_url, price, product_url, mall, category, list_type"
+            )
+            .eq("user_id", profile.user_id)
+            .eq("list_type", "wishlist")
+            .order("updated_at", { ascending: false });
+
+          if (itemsError) throw itemsError;
+
+          renderItems(profile.display_name, items || []);
+        } catch (error) {
+          content.className = "state error";
+          content.textContent =
+            "불러오지 못했어요.\n" + (error.message || String(error));
+        }
+      }
+
+      main();
+    </script>
+  </body>
+</html>

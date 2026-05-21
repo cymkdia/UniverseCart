@@ -6,6 +6,11 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		FA17951F2FBDD18E002D8A87 /* UniverseCartShare.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = FA1795152FBDD18E002D8A87 /* UniverseCartShare.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		FA1795A22FBDFA3D002D8A87 /* Supabase in Frameworks */ = {isa = PBXBuildFile; productRef = FA17M5022FBDE001002D8A87 /* Supabase */; };
+/* End PBXBuildFile section */
+
 /* Begin PBXContainerItemProxy section */
 		FA1794D92FBDA756002D8A87 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -21,17 +26,64 @@
 			remoteGlobalIDString = FA1794CA2FBDA754002D8A87;
 			remoteInfo = UniverseCart;
 		};
+		FA17951D2FBDD18E002D8A87 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = FA1794C32FBDA754002D8A87 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = FA1795142FBDD18E002D8A87;
+			remoteInfo = UniverseCartShare;
+		};
 /* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		FA1795242FBDD18F002D8A87 /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				FA17951F2FBDD18E002D8A87 /* UniverseCartShare.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
 		FA1794CB2FBDA754002D8A87 /* UniverseCart.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = UniverseCart.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		FA1794D82FBDA756002D8A87 /* UniverseCartTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = UniverseCartTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		FA1794E22FBDA757002D8A87 /* UniverseCartUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = UniverseCartUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		FA1795152FBDD18E002D8A87 /* UniverseCartShare.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = UniverseCartShare.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
+
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		FA1795202FBDD18F002D8A87 /* Exceptions for "UniverseCartShare" folder in "UniverseCartShare" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = FA1795142FBDD18E002D8A87 /* UniverseCartShare */;
+		};
+		FA1795492FBDD7DC002D8A87 /* Exceptions for "UniverseCart" folder in "UniverseCartShare" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Models/Item.swift,
+				Shared/AppGroupConstants.swift,
+				Shared/MallDetector.swift,
+				Shared/OGMetadataExtractor.swift,
+				Shared/SharedItemStore.swift,
+				Shared/SharedPendingItem.swift,
+			);
+			target = FA1795142FBDD18E002D8A87 /* UniverseCartShare */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		FA1794CD2FBDA754002D8A87 /* UniverseCart */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				FA1795492FBDD7DC002D8A87 /* Exceptions for "UniverseCart" folder in "UniverseCartShare" target */,
+			);
 			path = UniverseCart;
 			sourceTree = "<group>";
 		};
@@ -45,6 +97,14 @@
 			path = UniverseCartUITests;
 			sourceTree = "<group>";
 		};
+		FA1795162FBDD18E002D8A87 /* UniverseCartShare */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				FA1795202FBDD18F002D8A87 /* Exceptions for "UniverseCartShare" folder in "UniverseCartShare" target */,
+			);
+			path = UniverseCartShare;
+			sourceTree = "<group>";
+		};
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -52,6 +112,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				FA1795A22FBDFA3D002D8A87 /* Supabase in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -69,6 +130,13 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		FA1795122FBDD18E002D8A87 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
@@ -78,6 +146,7 @@
 				FA1794CD2FBDA754002D8A87 /* UniverseCart */,
 				FA1794DB2FBDA756002D8A87 /* UniverseCartTests */,
 				FA1794E52FBDA757002D8A87 /* UniverseCartUITests */,
+				FA1795162FBDD18E002D8A87 /* UniverseCartShare */,
 				FA1794CC2FBDA754002D8A87 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -88,6 +157,7 @@
 				FA1794CB2FBDA754002D8A87 /* UniverseCart.app */,
 				FA1794D82FBDA756002D8A87 /* UniverseCartTests.xctest */,
 				FA1794E22FBDA757002D8A87 /* UniverseCartUITests.xctest */,
+				FA1795152FBDD18E002D8A87 /* UniverseCartShare.appex */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -102,16 +172,19 @@
 				FA1794C72FBDA754002D8A87 /* Sources */,
 				FA1794C82FBDA754002D8A87 /* Frameworks */,
 				FA1794C92FBDA754002D8A87 /* Resources */,
+				FA1795242FBDD18F002D8A87 /* Embed Foundation Extensions */,
 			);
 			buildRules = (
 			);
 			dependencies = (
+				FA17951E2FBDD18E002D8A87 /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
 				FA1794CD2FBDA754002D8A87 /* UniverseCart */,
 			);
 			name = UniverseCart;
 			packageProductDependencies = (
+				FA17M5022FBDE001002D8A87 /* Supabase */,
 			);
 			productName = UniverseCart;
 			productReference = FA1794CB2FBDA754002D8A87 /* UniverseCart.app */;
@@ -163,6 +236,28 @@
 			productReference = FA1794E22FBDA757002D8A87 /* UniverseCartUITests.xctest */;
 			productType = "com.apple.product-type.bundle.ui-testing";
 		};
+		FA1795142FBDD18E002D8A87 /* UniverseCartShare */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = FA1795212FBDD18F002D8A87 /* Build configuration list for PBXNativeTarget "UniverseCartShare" */;
+			buildPhases = (
+				FA1795112FBDD18E002D8A87 /* Sources */,
+				FA1795122FBDD18E002D8A87 /* Frameworks */,
+				FA1795132FBDD18E002D8A87 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				FA1795162FBDD18E002D8A87 /* UniverseCartShare */,
+			);
+			name = UniverseCartShare;
+			packageProductDependencies = (
+			);
+			productName = UniverseCartShare;
+			productReference = FA1795152FBDD18E002D8A87 /* UniverseCartShare.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -184,6 +279,9 @@
 						CreatedOnToolsVersion = 26.5;
 						TestTargetID = FA1794CA2FBDA754002D8A87;
 					};
+					FA1795142FBDD18E002D8A87 = {
+						CreatedOnToolsVersion = 26.5;
+					};
 				};
 			};
 			buildConfigurationList = FA1794C62FBDA754002D8A87 /* Build configuration list for PBXProject "UniverseCart" */;
@@ -195,6 +293,9 @@
 			);
 			mainGroup = FA1794C22FBDA754002D8A87;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				FA17M5012FBDE001002D8A87 /* XCRemoteSwiftPackageReference "supabase-swift" */,
+			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = FA1794CC2FBDA754002D8A87 /* Products */;
 			projectDirPath = "";
@@ -203,6 +304,7 @@
 				FA1794CA2FBDA754002D8A87 /* UniverseCart */,
 				FA1794D72FBDA756002D8A87 /* UniverseCartTests */,
 				FA1794E12FBDA757002D8A87 /* UniverseCartUITests */,
+				FA1795142FBDD18E002D8A87 /* UniverseCartShare */,
 			);
 		};
 /* End PBXProject section */
@@ -223,6 +325,13 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 		FA1794E02FBDA757002D8A87 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		FA1795132FBDD18E002D8A87 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -253,6 +362,13 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		FA1795112FBDD18E002D8A87 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
@@ -265,6 +381,11 @@
 			isa = PBXTargetDependency;
 			target = FA1794CA2FBDA754002D8A87 /* UniverseCart */;
 			targetProxy = FA1794E32FBDA757002D8A87 /* PBXContainerItemProxy */;
+		};
+		FA17951E2FBDD18E002D8A87 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = FA1795142FBDD18E002D8A87 /* UniverseCartShare */;
+			targetProxy = FA17951D2FBDD18E002D8A87 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -393,8 +514,10 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = UniverseCart/UniverseCart.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = B847ZK8YBC;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
@@ -424,8 +547,10 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = UniverseCart/UniverseCart.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = B847ZK8YBC;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
@@ -530,6 +655,64 @@
 			};
 			name = Release;
 		};
+		FA1795222FBDD18F002D8A87 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = UniverseCartShare/UniverseCartShare.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = B847ZK8YBC;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = UniverseCartShare/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = "Universe Cart";
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = cymk.UniverseCart.UniverseCartShare;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		FA1795232FBDD18F002D8A87 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = UniverseCartShare/UniverseCartShare.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = B847ZK8YBC;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = UniverseCartShare/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = "Universe Cart";
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = cymk.UniverseCart.UniverseCartShare;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -569,7 +752,35 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
+		FA1795212FBDD18F002D8A87 /* Build configuration list for PBXNativeTarget "UniverseCartShare" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				FA1795222FBDD18F002D8A87 /* Debug */,
+				FA1795232FBDD18F002D8A87 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		FA17M5012FBDE001002D8A87 /* XCRemoteSwiftPackageReference "supabase-swift" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/supabase/supabase-swift.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 2.0.0;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		FA17M5022FBDE001002D8A87 /* Supabase */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = FA17M5012FBDE001002D8A87 /* XCRemoteSwiftPackageReference "supabase-swift" */;
+			productName = Supabase;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = FA1794C32FBDA754002D8A87 /* Project object */;
 }

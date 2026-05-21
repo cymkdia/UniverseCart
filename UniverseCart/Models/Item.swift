@@ -12,17 +12,42 @@ enum Mall: String, CaseIterable, Codable {
         case .etc: return "기타"
         }
     }
+
+    /// Assets.xcassets 이미지셋 이름 (PNG 파일명과 동일)
+    var logoAssetName: String? {
+        switch self {
+        case .cm29: return "mall_29cm"
+        case .musinsa: return "mall_musinsa"
+        case .wconcept: return "mall_wconcept"
+        case .naver: return "mall_naver"
+        case .etc: return nil
+        }
+    }
 }
 
-enum Category: String, CaseIterable, Codable {
-    case fashion, home, food, beauty
+enum Category: String, Codable, CaseIterable {
+    case fashion, beauty, home, appliance, food, sports
+
+    static var allCases: [Category] {
+        [.fashion, .beauty, .home, .appliance, .food, .sports]
+    }
 
     var displayName: String {
         switch self {
         case .fashion: return "패션"
-        case .home: return "홈리빙"
-        case .food: return "식품"
         case .beauty: return "뷰티"
+        case .home: return "홈리빙"
+        case .appliance: return "가전"
+        case .food: return "식품"
+        case .sports: return "스포츠"
+        }
+    }
+
+    /// 메인·공유 카테고리 바 칸 너비 (3글자 라벨은 2글자와 비슷한 비율)
+    var barLayoutWeight: CGFloat {
+        switch self {
+        case .home, .sports: return 2.1
+        default: return 2
         }
     }
 }
@@ -38,7 +63,7 @@ enum ListType: String, CaseIterable, Codable {
     }
 }
 
-struct Item: Identifiable {
+struct Item: Identifiable, Codable, Equatable {
     let id: UUID
     var title: String
     var imageURL: String?

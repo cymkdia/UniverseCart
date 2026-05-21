@@ -1,6 +1,8 @@
 import SwiftUI
 
 struct ContentView: View {
+    @Environment(AuthSession.self) private var auth
+
     var body: some View {
         TabView {
             MainListView()
@@ -13,10 +15,11 @@ struct ContentView: View {
                     Label("프로필", systemImage: "person.crop.circle")
                 }
         }
-        .tint(UCTheme.textPrimary)
+        .tint(UCColor.textPrimary)
     }
 }
 
 #Preview {
     ContentView()
+        .environment(AuthSession())
 }

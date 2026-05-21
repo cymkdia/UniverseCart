@@ -9,24 +9,45 @@ enum HomeSegment: String, CaseIterable {
 enum CategoryChip: String, CaseIterable {
     case all = "전체"
     case fashion = "패션"
+    case beauty = "뷰티"
     case home = "홈리빙"
+    case appliance = "가전"
     case food = "식품"
+    case sports = "스포츠"
 
     var mappedCategory: Category? {
         switch self {
         case .all: return nil
         case .fashion: return .fashion
+        case .beauty: return .beauty
         case .home: return .home
+        case .appliance: return .appliance
         case .food: return .food
+        case .sports: return .sports
         }
+    }
+
+    var layoutWeight: CGFloat {
+        mappedCategory?.barLayoutWeight ?? 2
     }
 }
 
 struct MainListView: View {
-    @State private var items: [Item] = DummyItems.sample
+    @Environment(\.scenePhase) private var scenePhase
+    @Environment(AuthSession.self) private var auth
+
+    @State private var items: [Item] = []
+    @State private var isSyncing = false
+    @State private var didLoadStoredItems = false
     @State private var selectedSegment: HomeSegment = .all
     @State private var selectedChip: CategoryChip = .all
     @State private var isGrid = false
+    @State private var showingAddSheet = false
+    @State private var showingURLSheet = false
+    @State private var showingPriceSheet = false
+    @State private var priceEditingItemID: UUID?
+    @State private var priceInputText = ""
+    @State private var justAddedItemIDs: Set<UUID> = []
 
     private var filteredItems: [Item] {
         items.filter { item in
@@ -57,103 +78,430 @@ struct MainListView: View {
         filteredItems.filter { $0.listType == .wishlist }.count
     }
 
+    private var emptyStateMessage: (title: String, subtitle: String) {
+        if items.isEmpty {
+            return (
+                "아직 담은 상품이 없어요",
+                "쇼핑몰에서 공유하거나 + 버튼으로 추가해 보세요"
+            )
+        }
+
+        switch selectedSegment {
+        case .wishlist:
+            return (
+                "위시리스트가 비어 있어요",
+                "마음에 드는 상품을 위시리스트에 담아보세요"
+            )
+        case .cart:
+            return (
+                "장바구니가 비어 있어요",
+                "구매할 상품을 장바구니에 담아보세요"
+            )
+        case .all:
+            if selectedChip != .all {
+                return (
+                    "\(selectedChip.rawValue) 항목이 없어요",
+                    "다른 카테고리를 선택하거나 상품을 추가해 보세요"
+                )
+            }
+            return (
+                "조건에 맞는 상품이 없어요",
+                "필터를 바꿔보세요"
+            )
+        }
+    }
+
     var body: some View {
         NavigationStack {
-            VStack(spacing: 12) {
-                topBar
-                segmentPicker
-                summaryBar
-                categoryChips
+            VStack(spacing: 0) {
+                VStack(spacing: 12) {
+                    topBar
+                    segmentPicker
+                    summaryBar
+                }
+                .padding(.horizontal, 16)
+                .padding(.top, 12)
+
+                categoryBar
+                    .padding(.top, 8)
+
                 contentArea
+                    .padding(.horizontal, 16)
+                    .padding(.top, 12)
+
                 Spacer(minLength: 0)
             }
-            .padding(.horizontal, 16)
-            .padding(.top, 12)
-            .background(UCTheme.background.ignoresSafeArea())
+            .background(UCColor.bg.ignoresSafeArea())
         }
+        .sheet(isPresented: $showingAddSheet) {
+            AddItemSheet { newItem in
+                items.insert(newItem, at: 0)
+                markJustAdded([newItem.id])
+            }
+        }
+        .sheet(isPresented: $showingURLSheet) {
+            AddFromURLSheet { newItem in
+                items.insert(newItem, at: 0)
+                markJustAdded([newItem.id])
+            }
+        }
+        .sheet(isPresented: $showingPriceSheet) {
+            PriceInputSheet(
+                title: priceSheetTitle,
+                priceText: $priceInputText,
+                onSave: savePrice,
+                onCancel: closePriceSheet
+            )
+        }
+        .onAppear {
+            loadStoredItemsIfNeeded()
+            importPendingSharedItems()
+        }
+        .onChange(of: scenePhase) { newPhase in
+            if newPhase == .active {
+                importPendingSharedItems()
+            }
+        }
+        .onChange(of: items) { _, newItems in
+            guard didLoadStoredItems else { return }
+            ItemStore.save(newItems)
+            pushToCloudIfNeeded(newItems)
+        }
+        .onChange(of: auth.isAuthenticated) { _, isLoggedIn in
+            guard isLoggedIn, didLoadStoredItems else { return }
+            Task { await syncFromCloud() }
+        }
+    }
+
+    private func pushToCloudIfNeeded(_ newItems: [Item]) {
+        guard auth.isAuthenticated,
+              let client = SupabaseService.shared.client,
+              let userId = auth.currentUserId()
+        else {
+            return
+        }
+
+        Task {
+            do {
+                try await ItemSyncService.replaceAll(
+                    client: client,
+                    userId: userId,
+                    items: newItems
+                )
+            } catch {
+                await MainActor.run {
+                    auth.statusMessage = "동기화 실패: \(error.localizedDescription)"
+                }
+            }
+        }
+    }
+
+    private func syncFromCloud() async {
+        guard !isSyncing,
+              auth.isAuthenticated,
+              let client = SupabaseService.shared.client,
+              let userId = auth.currentUserId()
+        else {
+            return
+        }
+
+        isSyncing = true
+        defer { isSyncing = false }
+
+        do {
+            let remote = try await ItemSyncService.fetchItems(client: client, userId: userId)
+
+            if remote.isEmpty, !items.isEmpty {
+                try await ItemSyncService.replaceAll(
+                    client: client,
+                    userId: userId,
+                    items: items
+                )
+            } else if !remote.isEmpty {
+                items = remote
+                ItemStore.save(remote)
+            }
+        } catch {
+            auth.statusMessage = "불러오기 실패: \(error.localizedDescription)"
+        }
+    }
+
+    private func loadStoredItemsIfNeeded() {
+        guard !didLoadStoredItems else { return }
+        didLoadStoredItems = true
+
+        if let stored = ItemStore.load(), !stored.isEmpty {
+            items = stored
+        } else {
+            items = DummyItems.sample
+            ItemStore.save(items)
+        }
+    }
+
+    private func importPendingSharedItems() {
+        let pending = SharedItemStore.loadPending()
+        guard !pending.isEmpty else { return }
+
+        let imported = pending.map { shared in
+            Item(
+                id: shared.id,
+                title: shared.title,
+                imageURL: shared.imageURL,
+                price: shared.price,
+                productURL: shared.productURL,
+                mall: shared.mall,
+                category: shared.category,
+                listType: shared.listType
+            )
+        }
+
+        items.insert(contentsOf: imported, at: 0)
+        markJustAdded(imported.map(\.id))
+        SharedItemStore.clearPending()
+    }
+
+    private func markJustAdded(_ ids: [UUID]) {
+        guard !ids.isEmpty else { return }
+        justAddedItemIDs.formUnion(ids)
+
+        Task {
+            try? await Task.sleep(nanoseconds: 8_000_000_000)
+            await MainActor.run {
+                justAddedItemIDs.subtract(ids)
+            }
+        }
+    }
+
+    private var priceSheetTitle: String {
+        guard let id = priceEditingItemID,
+              let item = items.first(where: { $0.id == id }) else {
+            return "가격 입력"
+        }
+        return item.title
     }
 
     private var topBar: some View {
         HStack {
             Text("Universe Cart")
                 .font(.title3.bold())
-                .foregroundStyle(UCTheme.textPrimary)
+                .foregroundStyle(UCColor.textPrimary)
 
             Spacer()
 
-            Button {
-                isGrid.toggle()
-            } label: {
-                Image(systemName: isGrid ? "list.bullet" : "square.grid.2x2")
-                    .font(.system(size: 18, weight: .semibold))
-                    .foregroundStyle(UCTheme.textPrimary)
-                    .frame(width: 36, height: 36)
-                    .background(UCTheme.surface)
-                    .clipShape(RoundedRectangle(cornerRadius: 7))
-            }
-        }
-    }
-
-    private var segmentPicker: some View {
-        Picker("세그먼트", selection: $selectedSegment) {
-            ForEach(HomeSegment.allCases, id: \.self) { segment in
-                Text(segment.rawValue).tag(segment)
-            }
-        }
-        .pickerStyle(.segmented)
-    }
-
-    private var summaryBar: some View {
-        HStack(spacing: 8) {
-            Text("담은 것 \(totalCount)개")
-            Text("·")
-            Text("합계 \(currency(totalPrice))")
-            Text("·")
-            Text("위시 \(wishlistCount)개")
-        }
-        .font(.subheadline)
-        .foregroundStyle(UCTheme.textSecondary)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(12)
-        .background(UCTheme.surface)
-        .clipShape(RoundedRectangle(cornerRadius: 6))
-        .overlay(
-            RoundedRectangle(cornerRadius: 6)
-                .stroke(UCTheme.border, lineWidth: 1)
-        )
-    }
-
-    private var categoryChips: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 8) {
-                ForEach(CategoryChip.allCases, id: \.self) { chip in
-                    Button {
-                        selectedChip = chip
-                    } label: {
-                        Text(chip.rawValue)
-                            .font(.subheadline)
-                            .foregroundStyle(selectedChip == chip ? UCTheme.background : UCTheme.textPrimary)
-                            .padding(.horizontal, 12)
-                            .padding(.vertical, 8)
-                            .background(selectedChip == chip ? UCTheme.textPrimary : UCTheme.surface)
-                            .clipShape(RoundedRectangle(cornerRadius: 5))
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 5)
-                                    .stroke(UCTheme.border, lineWidth: selectedChip == chip ? 0 : 1)
-                            )
-                    }
+                Button {
+                    showingURLSheet = true
+                } label: {
+                    Image(systemName: "link")
+                        .font(.system(size: 18, weight: .semibold))
+                        .foregroundStyle(UCColor.textPrimary)
+                        .frame(width: 36, height: 36)
+                        .background(UCColor.surface)
+                        .clipShape(RoundedRectangle(cornerRadius: 7))
+                }
+
+                Button {
+                    showingAddSheet = true
+                } label: {
+                    Image(systemName: "plus")
+                        .font(.system(size: 18, weight: .semibold))
+                        .foregroundStyle(UCColor.textPrimary)
+                        .frame(width: 36, height: 36)
+                        .background(UCColor.surface)
+                        .clipShape(RoundedRectangle(cornerRadius: 7))
+                }
+
+                Button {
+                    isGrid.toggle()
+                } label: {
+                    Image(systemName: isGrid ? "list.bullet" : "square.grid.2x2")
+                        .font(.system(size: 18, weight: .semibold))
+                        .foregroundStyle(UCColor.textPrimary)
+                        .frame(width: 36, height: 36)
+                        .background(UCColor.surface)
+                        .clipShape(RoundedRectangle(cornerRadius: 7))
                 }
             }
         }
     }
 
+    private var segmentPicker: some View {
+        HStack(spacing: 4) {
+            ForEach(HomeSegment.allCases, id: \.self) { segment in
+                Button {
+                    selectedSegment = segment
+                } label: {
+                    Text(segment.rawValue)
+                        .font(.caption)
+                        .fontWeight(selectedSegment == segment ? .semibold : .regular)
+                        .foregroundStyle(
+                            selectedSegment == segment ? UCColor.bg : UCColor.textPrimary
+                        )
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 10)
+                        .background(
+                            selectedSegment == segment ? UCColor.textPrimary : Color.clear
+                        )
+                        .clipShape(RoundedRectangle(cornerRadius: 5))
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(4)
+        .background(UCColor.surface)
+        .clipShape(RoundedRectangle(cornerRadius: 7))
+        .overlay(
+            RoundedRectangle(cornerRadius: 7)
+                .stroke(UCColor.border, lineWidth: 1)
+        )
+    }
+
+    private var summaryBar: some View {
+        HStack(spacing: 6) {
+            summaryMetric(label: "담은 것", value: "\(totalCount)", suffix: "개")
+            summaryDot
+            summaryMetric(label: "합계", value: currency(totalPrice))
+            summaryDot
+            summaryMetric(label: "위시", value: "\(wishlistCount)", suffix: "개")
+        }
+        .frame(maxWidth: .infinity, alignment: .center)
+        .padding(12)
+        .background(UCColor.surface)
+        .clipShape(RoundedRectangle(cornerRadius: 6))
+        .overlay(
+            RoundedRectangle(cornerRadius: 6)
+                .stroke(UCColor.border, lineWidth: 1)
+        )
+    }
+
+    private var summaryDot: some View {
+        Text("·")
+            .font(.subheadline)
+            .foregroundStyle(UCColor.textDisabled)
+    }
+
+    private func summaryMetric(label: String, value: String, suffix: String? = nil) -> some View {
+        HStack(spacing: 4) {
+            Text(label)
+                .foregroundStyle(UCColor.textSecond)
+
+            HStack(spacing: 0) {
+                Text(value)
+                    .fontWeight(.semibold)
+                    .foregroundStyle(UCColor.textPrimary)
+
+                if let suffix {
+                    Text(suffix)
+                        .fontWeight(.semibold)
+                        .foregroundStyle(UCColor.textPrimary)
+                }
+            }
+        }
+        .font(.subheadline)
+    }
+
+    private var categoryBar: some View {
+        let chips = CategoryChip.allCases
+        let horizontalInset: CGFloat = 8
+        let weightSum = chips.map(\.layoutWeight).reduce(0, +)
+
+        return GeometryReader { geo in
+            let width = geo.size.width
+            let dividerPositions = categoryBarDividerPositions(
+                width: width,
+                chips: chips,
+                weightSum: weightSum
+            )
+
+            ZStack(alignment: .topLeading) {
+                HStack(spacing: 0) {
+                    ForEach(chips, id: \.self) { chip in
+                        categoryBarButton(chip)
+                            .frame(width: width * chip.layoutWeight / weightSum)
+                    }
+                }
+
+                ForEach(Array(dividerPositions.enumerated()), id: \.offset) { _, x in
+                    Text("|")
+                        .font(.caption)
+                        .foregroundStyle(UCColor.gray300)
+                        .position(x: x, y: geo.size.height / 2)
+                }
+            }
+        }
+        .padding(.horizontal, horizontalInset)
+        .frame(height: 40)
+        .overlay(alignment: .bottom) {
+            Rectangle()
+                .fill(UCColor.border)
+                .frame(height: 1)
+        }
+    }
+
+    private func categoryBarDividerPositions(
+        width: CGFloat,
+        chips: [CategoryChip],
+        weightSum: CGFloat
+    ) -> [CGFloat] {
+        var positions: [CGFloat] = []
+        var cumulative: CGFloat = 0
+
+        for index in 0..<chips.count - 1 {
+            cumulative += width * chips[index].layoutWeight / weightSum
+            positions.append(cumulative)
+        }
+
+        return positions
+    }
+
+    private func categoryBarButton(_ chip: CategoryChip) -> some View {
+        Button {
+            withAnimation(.easeInOut(duration: 0.15)) {
+                selectedChip = chip
+            }
+        } label: {
+            Text(chip.rawValue)
+                .font(.caption2)
+                .fontWeight(selectedChip == chip ? .semibold : .regular)
+                .foregroundStyle(selectedChip == chip ? UCColor.textPrimary : UCColor.textSecond)
+                .lineLimit(1)
+                .minimumScaleFactor(0.6)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+        }
+        .buttonStyle(.plain)
+    }
+
+    private var emptyStateView: some View {
+        let message = emptyStateMessage
+
+        return VStack(spacing: 8) {
+            Text(message.title)
+                .font(.headline)
+                .foregroundStyle(UCColor.textPrimary)
+
+            Text(message.subtitle)
+                .font(.subheadline)
+                .foregroundStyle(UCColor.textSecond)
+                .multilineTextAlignment(.center)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        .padding(.top, 48)
+        .padding(.horizontal, 24)
+    }
+
     @ViewBuilder
     private var contentArea: some View {
-        if isGrid {
+        if filteredItems.isEmpty {
+            emptyStateView
+        } else if isGrid {
             ScrollView {
                 LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
                     ForEach(filteredItems) { item in
-                        GridCard(item: item)
+                        GridCard(
+                            item: item,
+                            showJustAdded: justAddedItemIDs.contains(item.id),
+                            onTapPrice: { openPriceEditor(for: item.id) }
+                        )
                     }
                 }
                 .padding(.top, 4)
@@ -162,15 +510,59 @@ struct MainListView: View {
         } else {
             List {
                 ForEach(filteredItems) { item in
-                    ListRow(item: item)
-                        .listRowSeparator(.hidden)
-                        .listRowInsets(EdgeInsets(top: 6, leading: 0, bottom: 6, trailing: 0))
-                        .listRowBackground(Color.clear)
+                    ListRow(
+                        item: item,
+                        showJustAdded: justAddedItemIDs.contains(item.id),
+                        onToggleListType: { toggleListType(for: item.id) },
+                        onTapPrice: { openPriceEditor(for: item.id) }
+                    )
+                    .listRowSeparator(.hidden)
+                    .listRowInsets(EdgeInsets(top: 5, leading: 0, bottom: 5, trailing: 0))
+                    .listRowBackground(Color.clear)
                 }
+                .onDelete(perform: deleteItems)
             }
             .listStyle(.plain)
             .scrollContentBackground(.hidden)
         }
+    }
+
+    private func toggleListType(for id: UUID) {
+        guard let index = items.firstIndex(where: { $0.id == id }) else { return }
+        items[index].listType = items[index].listType == .wishlist ? .cart : .wishlist
+    }
+
+    private func openPriceEditor(for id: UUID) {
+        priceEditingItemID = id
+        if let item = items.first(where: { $0.id == id }), let price = item.price {
+            priceInputText = "\(price)"
+        } else {
+            priceInputText = ""
+        }
+        showingPriceSheet = true
+    }
+
+    private func savePrice() {
+        guard let id = priceEditingItemID,
+              let index = items.firstIndex(where: { $0.id == id }) else { return }
+
+        let digits = priceInputText.filter(\.isNumber)
+        guard let price = Int(digits), price > 0 else { return }
+
+        items[index].price = price
+        closePriceSheet()
+    }
+
+    private func closePriceSheet() {
+        showingPriceSheet = false
+        priceEditingItemID = nil
+        priceInputText = ""
+    }
+
+    private func deleteItems(at offsets: IndexSet) {
+        let targets = offsets.map { filteredItems[$0].id }
+        items.removeAll { targets.contains($0.id) }
+        justAddedItemIDs.subtract(targets)
     }
 
     private func currency(_ value: Int) -> String {
@@ -181,18 +573,80 @@ struct MainListView: View {
     }
 }
 
-private struct ListRow: View {
-    let item: Item
+private struct JustAddedBadge: View {
+    var body: some View {
+        Text("방금 담음")
+            .font(.caption2.weight(.semibold))
+            .foregroundStyle(UCColor.textPrimary)
+            .padding(.horizontal, 6)
+            .padding(.vertical, 3)
+            .background(UCColor.surface)
+            .clipShape(RoundedRectangle(cornerRadius: 4))
+            .overlay(
+                RoundedRectangle(cornerRadius: 4)
+                    .stroke(UCColor.border, lineWidth: 1)
+            )
+    }
+}
+
+private struct MallBadge: View {
+    let mall: Mall
 
     var body: some View {
-        HStack(spacing: 12) {
+        if let assetName = mall.logoAssetName {
+            Image(assetName)
+                .resizable()
+                .scaledToFit()
+                .frame(width: 19, height: 19)
+                .accessibilityLabel(mall.displayName)
+        } else {
+            Text(mall.displayName)
+                .font(.caption2.weight(.semibold))
+                .foregroundStyle(UCColor.textPrimary)
+                .padding(.horizontal, 6)
+                .padding(.vertical, 3)
+                .background(UCColor.surface)
+                .clipShape(RoundedRectangle(cornerRadius: 4))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 4)
+                        .stroke(UCColor.border, lineWidth: 1)
+                )
+        }
+    }
+}
+
+private enum ListRowLayout {
+    static let thumbnailSize: CGFloat = 68
+    static let metaRowHeight: CGFloat = 22
+    static let titleHeight: CGFloat = 40
+    static let priceRowHeight: CGFloat = 22
+    static let textSpacing: CGFloat = 4
+    static let padding: CGFloat = 12
+
+    static var infoHeight: CGFloat {
+        metaRowHeight + titleHeight + priceRowHeight + textSpacing * 2
+    }
+
+    static var rowHeight: CGFloat {
+        max(thumbnailSize, infoHeight) + padding * 2
+    }
+}
+
+private struct ListRow: View {
+    let item: Item
+    let showJustAdded: Bool
+    let onToggleListType: () -> Void
+    let onTapPrice: () -> Void
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 12) {
             ZStack(alignment: .topLeading) {
                 RoundedRectangle(cornerRadius: 6)
-                    .fill(UCTheme.surface)
-                    .frame(width: 72, height: 72)
+                    .fill(UCColor.surface)
+                    .frame(width: ListRowLayout.thumbnailSize, height: ListRowLayout.thumbnailSize)
                     .overlay(
                         RoundedRectangle(cornerRadius: 6)
-                            .stroke(UCTheme.border, lineWidth: 1)
+                            .stroke(UCColor.border, lineWidth: 1)
                     )
 
                 if item.listType == .wishlist {
@@ -203,52 +657,73 @@ private struct ListRow: View {
                 }
             }
 
-            VStack(alignment: .leading, spacing: 4) {
+            VStack(alignment: .leading, spacing: ListRowLayout.textSpacing) {
                 HStack(spacing: 6) {
-                    Circle()
-                        .fill(UCTheme.mallColor(item.mall))
-                        .frame(width: 8, height: 8)
+                    MallBadge(mall: item.mall)
 
-                    Text("\(item.mall.displayName) · \(item.category.displayName)")
+                    Text(item.category.displayName)
                         .font(.caption)
-                        .foregroundStyle(UCTheme.textSecondary)
+                        .foregroundStyle(UCColor.textSecond)
+                        .lineLimit(1)
+
+                    Spacer(minLength: 0)
+
+                    if showJustAdded {
+                        JustAddedBadge()
+                    }
                 }
+                .padding(.top, 2)
+                .frame(height: ListRowLayout.metaRowHeight, alignment: .leading)
 
                 Text(item.title)
                     .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(UCTheme.textPrimary)
+                    .foregroundStyle(UCColor.textPrimary)
                     .lineLimit(2)
+                    .multilineTextAlignment(.leading)
+                    .frame(
+                        maxWidth: .infinity,
+                        minHeight: ListRowLayout.titleHeight,
+                        maxHeight: ListRowLayout.titleHeight,
+                        alignment: .topLeading
+                    )
 
-                if let price = item.price {
-                    HStack(spacing: 6) {
-                        if item.mall == .wconcept {
-                            Text("₩\(Int(Double(price) * 1.2))")
-                                .font(.caption)
-                                .foregroundStyle(UCTheme.textLight)
-                                .strikethrough()
-                        }
+                Group {
+                    if let price = item.price {
                         Text(currency(price))
-                            .font(.subheadline.bold())
-                            .foregroundStyle(UCTheme.textPrimary)
+                            .font(.footnote)
+                            .foregroundStyle(UCColor.textPrimary)
+                    } else {
+                        Button(action: onTapPrice) {
+                            Text("가격 입력하기")
+                                .font(.footnote)
+                                .foregroundStyle(UCColor.textSecond)
+                        }
+                        .buttonStyle(.plain)
                     }
-                } else {
-                    Text("가격 입력하기")
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(UCTheme.textSecondary)
                 }
+                .frame(
+                    maxWidth: .infinity,
+                    minHeight: ListRowLayout.priceRowHeight,
+                    maxHeight: ListRowLayout.priceRowHeight,
+                    alignment: .leading
+                )
             }
+            .frame(height: ListRowLayout.infoHeight, alignment: .top)
 
-            Spacer()
-
-            Image(systemName: item.listType == .wishlist ? "heart.fill" : "heart")
-                .foregroundStyle(item.listType == .wishlist ? .pink : UCTheme.textLight)
+            Button(action: onToggleListType) {
+                Image(systemName: item.listType == .wishlist ? "heart.fill" : "heart")
+                    .foregroundStyle(item.listType == .wishlist ? UCColor.accent : UCColor.textDisabled)
+            }
+            .buttonStyle(.plain)
+            .frame(height: ListRowLayout.thumbnailSize, alignment: .center)
         }
-        .padding(12)
+        .padding(ListRowLayout.padding)
+        .frame(maxWidth: .infinity, minHeight: ListRowLayout.rowHeight, maxHeight: ListRowLayout.rowHeight, alignment: .topLeading)
         .background(.white)
         .clipShape(RoundedRectangle(cornerRadius: 6))
         .overlay(
             RoundedRectangle(cornerRadius: 6)
-                .stroke(UCTheme.border, lineWidth: 1)
+                .stroke(UCColor.border, lineWidth: 1)
         )
     }
 
@@ -260,18 +735,39 @@ private struct ListRow: View {
     }
 }
 
+private enum GridCardLayout {
+    static let thumbnailHeight: CGFloat = 120
+    static let metaRowHeight: CGFloat = 22
+    static let titleHeight: CGFloat = 40
+    static let priceRowHeight: CGFloat = 22
+    static let sectionSpacing: CGFloat = 4
+    static let padding: CGFloat = 12
+
+    static var cardHeight: CGFloat {
+        thumbnailHeight
+            + metaRowHeight
+            + titleHeight
+            + priceRowHeight
+            + sectionSpacing * 3
+            + padding * 2
+    }
+}
+
 private struct GridCard: View {
     let item: Item
+    let showJustAdded: Bool
+    let onTapPrice: () -> Void
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: GridCardLayout.sectionSpacing) {
             ZStack(alignment: .topLeading) {
                 RoundedRectangle(cornerRadius: 6)
-                    .fill(UCTheme.surface)
-                    .frame(height: 120)
+                    .fill(UCColor.surface)
+                    .frame(height: GridCardLayout.thumbnailHeight)
+                    .frame(maxWidth: .infinity)
                     .overlay(
                         RoundedRectangle(cornerRadius: 6)
-                            .stroke(UCTheme.border, lineWidth: 1)
+                            .stroke(UCColor.border, lineWidth: 1)
                     )
 
                 if item.listType == .wishlist {
@@ -280,29 +776,71 @@ private struct GridCard: View {
                         .foregroundStyle(.yellow)
                         .padding(6)
                 }
+
+                if showJustAdded {
+                    VStack {
+                        HStack {
+                            Spacer()
+                            JustAddedBadge()
+                        }
+                        Spacer()
+                    }
+                    .padding(6)
+                }
             }
+            .frame(height: GridCardLayout.thumbnailHeight)
+
+            HStack(spacing: 6) {
+                MallBadge(mall: item.mall)
+
+                Text(item.category.displayName)
+                    .font(.caption)
+                    .foregroundStyle(UCColor.textSecond)
+                    .lineLimit(1)
+            }
+            .padding(.top, 2)
+            .frame(height: GridCardLayout.metaRowHeight, alignment: .leading)
 
             Text(item.title)
                 .font(.subheadline.weight(.semibold))
-                .foregroundStyle(UCTheme.textPrimary)
+                .foregroundStyle(UCColor.textPrimary)
                 .lineLimit(2)
+                .multilineTextAlignment(.leading)
+                .frame(
+                    maxWidth: .infinity,
+                    minHeight: GridCardLayout.titleHeight,
+                    maxHeight: GridCardLayout.titleHeight,
+                    alignment: .topLeading
+                )
 
-            if let price = item.price {
-                Text(currency(price))
-                    .font(.subheadline.bold())
-                    .foregroundStyle(UCTheme.textPrimary)
-            } else {
-                Text("가격 입력하기")
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(UCTheme.textSecondary)
+            Group {
+                if let price = item.price {
+                    Text(currency(price))
+                        .font(.footnote)
+                        .foregroundStyle(UCColor.textPrimary)
+                } else {
+                    Button(action: onTapPrice) {
+                        Text("가격 입력하기")
+                            .font(.footnote)
+                            .foregroundStyle(UCColor.textSecond)
+                    }
+                    .buttonStyle(.plain)
+                }
             }
+            .frame(
+                maxWidth: .infinity,
+                minHeight: GridCardLayout.priceRowHeight,
+                maxHeight: GridCardLayout.priceRowHeight,
+                alignment: .leading
+            )
         }
-        .padding(10)
+        .padding(GridCardLayout.padding)
+        .frame(maxWidth: .infinity, minHeight: GridCardLayout.cardHeight, maxHeight: GridCardLayout.cardHeight, alignment: .topLeading)
         .background(.white)
         .clipShape(RoundedRectangle(cornerRadius: 6))
         .overlay(
             RoundedRectangle(cornerRadius: 6)
-                .stroke(UCTheme.border, lineWidth: 1)
+                .stroke(UCColor.border, lineWidth: 1)
         )
     }
 
@@ -311,5 +849,261 @@ private struct GridCard: View {
         formatter.numberStyle = .decimal
         let number = formatter.string(from: NSNumber(value: value)) ?? "\(value)"
         return "₩\(number)"
+    }
+}
+
+private struct AddFromURLSheet: View {
+    @Environment(\.dismiss) private var dismiss
+
+    @State private var urlText = ""
+    @State private var isLoading = false
+    @State private var errorMessage: String?
+    @State private var fetchedTitle = ""
+    @State private var fetchedImageURL: String?
+    @State private var priceText = ""
+    @State private var detectedMall: Mall = .etc
+    @State private var hasFetched = false
+    @State private var selectedCategory: Category = .fashion
+    @State private var selectedListType: ListType = .wishlist
+
+    let onSave: (Item) -> Void
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section("상품 URL") {
+                    TextField("https://...", text: $urlText)
+                        .textInputAutocapitalization(.never)
+                        .autocorrectionDisabled()
+                        .keyboardType(.URL)
+
+                    Button {
+                        Task { await fetchProduct() }
+                    } label: {
+                        if isLoading {
+                            HStack {
+                                ProgressView()
+                                Text("불러오는 중...")
+                            }
+                        } else {
+                            Text("상품 정보 가져오기")
+                        }
+                    }
+                    .disabled(urlText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || isLoading)
+                }
+
+                if let errorMessage {
+                    Section {
+                        Text(errorMessage)
+                            .foregroundStyle(.red)
+                            .font(.subheadline)
+                    }
+                }
+
+                if hasFetched {
+                    Section("미리보기") {
+                        Text(fetchedTitle)
+                            .font(.subheadline.weight(.semibold))
+
+                        Text(detectedMall.displayName)
+                            .foregroundStyle(UCColor.textSecond)
+
+                        TextField("가격(숫자만)", text: $priceText)
+                            .keyboardType(.numberPad)
+                    }
+
+                    Section("분류") {
+                        Picker("카테고리", selection: $selectedCategory) {
+                            ForEach(Category.allCases, id: \.self) { category in
+                                Text(category.displayName).tag(category)
+                            }
+                        }
+
+                        Picker("담을 곳", selection: $selectedListType) {
+                            ForEach(ListType.allCases, id: \.self) { listType in
+                                Text(listType.displayName).tag(listType)
+                            }
+                        }
+                    }
+                }
+            }
+            .navigationTitle("URL로 담기")
+            .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button("취소") { dismiss() }
+                }
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("담기") {
+                        saveItem()
+                    }
+                    .disabled(!canSave)
+                }
+            }
+        }
+    }
+
+    private var canSave: Bool {
+        hasFetched && !fetchedTitle.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
+    @MainActor
+    private func fetchProduct() async {
+        errorMessage = nil
+        hasFetched = false
+        isLoading = true
+        defer { isLoading = false }
+
+        guard let url = normalizedURL(from: urlText) else {
+            errorMessage = "올바른 URL을 입력해 주세요."
+            return
+        }
+
+        let metadata = await OGMetadataExtractor.fetch(from: url)
+        detectedMall = MallDetector.detect(from: url)
+
+        fetchedTitle = metadata.title ?? url.host ?? "공유 상품"
+        fetchedImageURL = metadata.imageURL
+
+        if let price = metadata.price {
+            priceText = "\(price)"
+        } else {
+            priceText = ""
+        }
+
+        hasFetched = true
+
+        if metadata.title == nil && metadata.price == nil {
+            errorMessage = "일부 정보만 가져왔어요. 제목·가격을 확인해 주세요."
+        }
+    }
+
+    private func saveItem() {
+        guard let url = normalizedURL(from: urlText) else { return }
+
+        let digits = priceText.filter(\.isNumber)
+        let price = Int(digits).flatMap { $0 > 0 ? $0 : nil }
+
+        let newItem = Item(
+            id: UUID(),
+            title: fetchedTitle.trimmingCharacters(in: .whitespacesAndNewlines),
+            imageURL: fetchedImageURL,
+            price: price,
+            productURL: url.absoluteString,
+            mall: detectedMall,
+            category: selectedCategory,
+            listType: selectedListType
+        )
+
+        onSave(newItem)
+        dismiss()
+    }
+
+    private func normalizedURL(from text: String) -> URL? {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        if trimmed.hasPrefix("http://") || trimmed.hasPrefix("https://") {
+            return URL(string: trimmed)
+        }
+        return URL(string: "https://\(trimmed)")
+    }
+}
+
+private struct AddItemSheet: View {
+    @Environment(\.dismiss) private var dismiss
+
+    @State private var title: String = ""
+    @State private var priceText: String = ""
+    @State private var selectedMall: Mall = .cm29
+    @State private var selectedCategory: Category = .fashion
+    @State private var selectedListType: ListType = .wishlist
+
+    let onSave: (Item) -> Void
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section("상품 정보") {
+                    TextField("상품명", text: $title)
+                    TextField("가격(숫자만)", text: $priceText)
+                        .keyboardType(.numberPad)
+                }
+
+                Section("분류") {
+                    Picker("몰", selection: $selectedMall) {
+                        ForEach(Mall.allCases, id: \.self) { mall in
+                            Text(mall.displayName).tag(mall)
+                        }
+                    }
+
+                    Picker("카테고리", selection: $selectedCategory) {
+                        ForEach(Category.allCases, id: \.self) { category in
+                            Text(category.displayName).tag(category)
+                        }
+                    }
+
+                    Picker("담을 곳", selection: $selectedListType) {
+                        ForEach(ListType.allCases, id: \.self) { listType in
+                            Text(listType.displayName).tag(listType)
+                        }
+                    }
+                }
+            }
+            .navigationTitle("아이템 추가")
+            .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button("취소") { dismiss() }
+                }
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("저장") {
+                        let newItem = Item(
+                            id: UUID(),
+                            title: title.trimmingCharacters(in: .whitespacesAndNewlines),
+                            imageURL: nil,
+                            price: Int(priceText.filter(\.isNumber)),
+                            productURL: "https://example.com",
+                            mall: selectedMall,
+                            category: selectedCategory,
+                            listType: selectedListType
+                        )
+                        onSave(newItem)
+                        dismiss()
+                    }
+                    .disabled(title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                }
+            }
+        }
+    }
+}
+
+private struct PriceInputSheet: View {
+    let title: String
+    @Binding var priceText: String
+    let onSave: () -> Void
+    let onCancel: () -> Void
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section("상품") {
+                    Text(title)
+                        .foregroundStyle(UCColor.textSecond)
+                }
+
+                Section("가격") {
+                    TextField("가격(숫자만)", text: $priceText)
+                        .keyboardType(.numberPad)
+                }
+            }
+            .navigationTitle("가격 입력")
+            .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button("취소", action: onCancel)
+                }
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("저장", action: onSave)
+                        .disabled(Int(priceText.filter(\.isNumber)) ?? 0 <= 0)
+                }
+            }
+        }
+        .presentationDetents([.medium])
     }
 }
