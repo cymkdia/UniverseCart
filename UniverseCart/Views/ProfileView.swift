@@ -24,6 +24,7 @@ struct ProfileView: View {
                         signedInCard
                         shareWishlistCard
                     } else {
+                        socialSignInCard
                         signInCard
                     }
 
@@ -88,8 +89,8 @@ struct ProfileView: View {
             Text("로그인됨")
                 .font(.headline)
 
-            if let email = auth.userEmail {
-                Text(email)
+            if let label = auth.userDisplayLabel {
+                Text(label)
                     .font(.subheadline)
                     .foregroundStyle(UCColor.textSecond)
             }
@@ -178,9 +179,43 @@ struct ProfileView: View {
         )
     }
 
+    private var socialSignInCard: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("간편 로그인")
+                .font(.headline)
+
+            Button {
+                Task { await auth.signInWithKakao() }
+            } label: {
+                Text("카카오로 계속하기")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(Color(red: 0.12, green: 0.12, blue: 0.12))
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 11)
+                    .background(Color(red: 0.99, green: 0.9, blue: 0.0))
+                    .clipShape(RoundedRectangle(cornerRadius: 8))
+            }
+            .buttonStyle(.plain)
+            .disabled(auth.isBusy)
+
+            Text("Supabase에서 카카오 제공자를 켜야 동작해요. (docs/M9-social-login-setup.md)")
+                .font(.caption)
+                .foregroundStyle(UCColor.textSecond)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(UCColor.surface)
+        .clipShape(RoundedRectangle(cornerRadius: 8))
+        .overlay(
+            RoundedRectangle(cornerRadius: 8)
+                .stroke(UCColor.border, lineWidth: 1)
+        )
+    }
+
     private var signInCard: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("계정")
+            Text("이메일로 로그인")
                 .font(.headline)
 
             TextField("이메일", text: $email)

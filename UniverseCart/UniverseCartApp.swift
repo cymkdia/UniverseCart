@@ -13,6 +13,9 @@ struct UniverseCartApp: App {
         WindowGroup {
             ContentView()
                 .environment(auth)
+                .onOpenURL { url in
+                    Task { await auth.handleOpenURL(url) }
+                }
         }
     }
 }
