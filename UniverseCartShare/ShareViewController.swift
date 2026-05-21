@@ -235,6 +235,8 @@ final class ShareViewController: UIViewController {
         guard let url = sharedURL else { return }
 
         let (price, priceManual) = resolvedPriceForSave()
+        let productURL = ProductURLNormalizer.canonicalString(from: url.absoluteString)
+            ?? url.absoluteString
 
         let pending = SharedPendingItem(
             id: UUID(),
@@ -242,7 +244,7 @@ final class ShareViewController: UIViewController {
             imageURL: extractedImageURL,
             price: price,
             priceManual: priceManual,
-            productURL: url.absoluteString,
+            productURL: productURL,
             mall: MallDetector.detect(from: url),
             listType: selectedListType,
             category: selectedCategory,

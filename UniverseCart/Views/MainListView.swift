@@ -153,14 +153,14 @@ struct MainListView: View {
         }
         .sheet(isPresented: $showingAddSheet) {
             AddItemSheet { newItem in
-                items.insert(newItem, at: 0)
-                markJustAdded([newItem.id])
+                let id = addOrUpdateItem(newItem)
+                markJustAdded([id])
             }
         }
         .sheet(isPresented: $showingURLSheet) {
             AddFromURLSheet { newItem in
-                items.insert(newItem, at: 0)
-                markJustAdded([newItem.id])
+                let id = addOrUpdateItem(newItem)
+                markJustAdded([id])
             }
         }
         .sheet(isPresented: $showingPriceSheet) {
@@ -260,8 +260,9 @@ struct MainListView: View {
         let pending = SharedItemStore.loadPending()
         guard !pending.isEmpty else { return }
 
-        let imported = pending.map { shared in
-            Item(
+        var touchedIDs: [UUID] = []
+        for shared in pending {
+            let incoming = Item(
                 id: shared.id,
                 title: shared.title,
                 imageURL: shared.imageURL,
@@ -271,11 +272,16 @@ struct MainListView: View {
                 category: shared.category,
                 listType: shared.listType
             )
+            touchedIDs.append(addOrUpdateItem(incoming))
         }
 
-        items.insert(contentsOf: imported, at: 0)
-        markJustAdded(imported.map(\.id))
+        markJustAdded(touchedIDs)
         SharedItemStore.clearPending()
+    }
+
+    @discardableResult
+    private func addOrUpdateItem(_ incoming: Item) -> UUID {
+        ItemUpsert.apply(incoming, to: &items, moveUpdatedToTop: true)
     }
 
     private func markJustAdded(_ ids: [UUID]) {
@@ -1010,6 +1016,7 @@ private struct AddFromURLSheet: View {
             return
         }
 
+        urlText = url.absoluteString
         let metadata = await OGMetadataExtractor.fetch(from: url)
         detectedMall = MallDetector.detect(from: url)
 
@@ -1051,11 +1058,7 @@ private struct AddFromURLSheet: View {
     }
 
     private func normalizedURL(from text: String) -> URL? {
-        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
-        if trimmed.hasPrefix("http://") || trimmed.hasPrefix("https://") {
-            return URL(string: trimmed)
-        }
-        return URL(string: "https://\(trimmed)")
+        ProductURLNormalizer.normalize(text)
     }
 }
 

@@ -69,8 +69,10 @@
 			membershipExceptions = (
 				Models/Item.swift,
 				Shared/AppGroupConstants.swift,
+				Shared/ItemUpsert.swift,
 				Shared/MallDetector.swift,
 				Shared/OGMetadataExtractor.swift,
+				Shared/ProductURLNormalizer.swift,
 				Shared/SharedItemStore.swift,
 				Shared/SharedPendingItem.swift,
 			);
