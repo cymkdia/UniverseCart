@@ -63,7 +63,7 @@ enum ListType: String, CaseIterable, Codable {
     }
 }
 
-struct Item: Identifiable, Codable, Equatable {
+struct Item: Identifiable, Codable, Equatable, Hashable {
     let id: UUID
     var title: String
     var imageURL: String?
@@ -72,4 +72,20 @@ struct Item: Identifiable, Codable, Equatable {
     var mall: Mall
     var category: Category
     var listType: ListType
+
+    func hash(into hasher: inout Hasher) {
+        hasher.combine(id)
+    }
+}
+
+extension Mall {
+    var storefrontURL: String {
+        switch self {
+        case .cm29: return "https://www.29cm.co.kr"
+        case .musinsa: return "https://www.musinsa.com"
+        case .wconcept: return "https://www.wconcept.co.kr"
+        case .naver: return "https://shopping.naver.com"
+        case .etc: return "https://www.google.com"
+        }
+    }
 }

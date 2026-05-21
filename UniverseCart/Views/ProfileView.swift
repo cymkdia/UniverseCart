@@ -11,31 +11,54 @@ struct ProfileView: View {
     @State private var didCopyLink = false
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 20) {
-                Text("프로필")
-                    .font(.title2.bold())
-                    .foregroundStyle(UCColor.textPrimary)
+        NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 20) {
+                    Text("프로필")
+                        .font(.title2.bold())
+                        .foregroundStyle(UCColor.textPrimary)
 
-                if !auth.isConfigured {
-                    setupNeededCard
-                } else if auth.isAuthenticated {
-                    signedInCard
-                    shareWishlistCard
-                } else {
-                    signInCard
-                }
+                    if !auth.isConfigured {
+                        setupNeededCard
+                    } else if auth.isAuthenticated {
+                        signedInCard
+                        shareWishlistCard
+                    } else {
+                        signInCard
+                    }
 
-                if let status = auth.statusMessage {
-                    Text(status)
-                        .font(.footnote)
-                        .foregroundStyle(UCColor.textSecond)
-                        .fixedSize(horizontal: false, vertical: true)
+                    NavigationLink {
+                        PolicyView()
+                    } label: {
+                        HStack {
+                            Text("이용 안내")
+                                .font(.subheadline.weight(.semibold))
+                            Spacer()
+                            Image(systemName: "chevron.right")
+                                .font(.caption.weight(.semibold))
+                                .foregroundStyle(UCColor.textSecond)
+                        }
+                        .foregroundStyle(UCColor.textPrimary)
+                        .padding(12)
+                        .background(UCColor.surface)
+                        .clipShape(RoundedRectangle(cornerRadius: 8))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 8)
+                                .stroke(UCColor.border, lineWidth: 1)
+                        )
+                    }
+
+                    if let status = auth.statusMessage {
+                        Text(status)
+                            .font(.footnote)
+                            .foregroundStyle(UCColor.textSecond)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
                 }
+                .padding(20)
             }
-            .padding(20)
+            .background(UCColor.bg)
         }
-        .background(UCColor.bg)
         .task(id: auth.isAuthenticated) {
             await loadShareProfile()
         }

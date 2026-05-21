@@ -48,6 +48,7 @@ struct MainListView: View {
     @State private var priceEditingItemID: UUID?
     @State private var priceInputText = ""
     @State private var justAddedItemIDs: Set<UUID> = []
+    @State private var selectedItemID: UUID?
 
     private var filteredItems: [Item] {
         items.filter { item in
@@ -76,6 +77,10 @@ struct MainListView: View {
 
     private var wishlistCount: Int {
         filteredItems.filter { $0.listType == .wishlist }.count
+    }
+
+    private var cartItems: [Item] {
+        items.filter { $0.listType == .cart }
     }
 
     private var emptyStateMessage: (title: String, subtitle: String) {
@@ -118,6 +123,7 @@ struct MainListView: View {
                     topBar
                     segmentPicker
                     summaryBar
+                    checkoutEntry
                 }
                 .padding(.horizontal, 16)
                 .padding(.top, 12)
@@ -132,6 +138,18 @@ struct MainListView: View {
                 Spacer(minLength: 0)
             }
             .background(UCColor.bg.ignoresSafeArea())
+            .navigationDestination(item: $selectedItemID) { itemID in
+                if let item = items.first(where: { $0.id == itemID }) {
+                    ItemDetailView(
+                        item: item,
+                        onToggleListType: { toggleListType(for: itemID) },
+                        onTapPrice: {
+                            selectedItemID = nil
+                            openPriceEditor(for: itemID)
+                        }
+                    )
+                }
+            }
         }
         .sheet(isPresented: $showingAddSheet) {
             AddItemSheet { newItem in
@@ -356,6 +374,35 @@ struct MainListView: View {
         )
     }
 
+    @ViewBuilder
+    private var checkoutEntry: some View {
+        if !cartItems.isEmpty {
+            NavigationLink {
+                CheckoutView(cartItems: cartItems)
+            } label: {
+                HStack {
+                    Text("쇼핑몰별 결제")
+                        .font(.subheadline.weight(.semibold))
+                    Spacer()
+                    Text("\(cartItems.count)개")
+                        .font(.caption)
+                        .foregroundStyle(UCColor.textSecond)
+                    Image(systemName: "chevron.right")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(UCColor.textSecond)
+                }
+                .foregroundStyle(UCColor.textPrimary)
+                .padding(12)
+                .background(UCColor.surface)
+                .clipShape(RoundedRectangle(cornerRadius: 6))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 6)
+                        .stroke(UCColor.border, lineWidth: 1)
+                )
+            }
+        }
+    }
+
     private var summaryBar: some View {
         HStack(spacing: 6) {
             summaryMetric(label: "담은 것", value: "\(totalCount)", suffix: "개")
@@ -500,6 +547,8 @@ struct MainListView: View {
                         GridCard(
                             item: item,
                             showJustAdded: justAddedItemIDs.contains(item.id),
+                            showWishOnThumbnail: selectedSegment == .all && item.listType == .wishlist,
+                            onOpen: { selectedItemID = item.id },
                             onTapPrice: { openPriceEditor(for: item.id) }
                         )
                     }
@@ -513,6 +562,8 @@ struct MainListView: View {
                     ListRow(
                         item: item,
                         showJustAdded: justAddedItemIDs.contains(item.id),
+                        showWishOnThumbnail: selectedSegment == .all && item.listType == .wishlist,
+                        onOpen: { selectedItemID = item.id },
                         onToggleListType: { toggleListType(for: item.id) },
                         onTapPrice: { openPriceEditor(for: item.id) }
                     )
@@ -573,6 +624,45 @@ struct MainListView: View {
     }
 }
 
+/// 리스트·그리드 공통 — 위시 ↔ 장바구니 전환
+private struct ListTypeToggleButton: View {
+    let item: Item
+    let showWishOnThumbnail: Bool
+    let action: () -> Void
+
+    private var iconName: String {
+        if showWishOnThumbnail {
+            return "cart"
+        }
+        return item.listType == .wishlist ? "heart.fill" : "heart"
+    }
+
+    private var iconColor: Color {
+        if showWishOnThumbnail {
+            return UCColor.textSecond
+        }
+        return item.listType == .wishlist ? UCColor.accent : UCColor.textDisabled
+    }
+
+    private var accessibilityText: String {
+        if showWishOnThumbnail {
+            return "장바구니로 옮기기"
+        }
+        return item.listType == .wishlist ? "위시리스트에서 제거" : "위시리스트에 담기"
+    }
+
+    var body: some View {
+        Button(action: action) {
+            Image(systemName: iconName)
+                .font(.body)
+                .foregroundStyle(iconColor)
+                .frame(width: 28, height: 28)
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(accessibilityText)
+    }
+}
+
 private struct JustAddedBadge: View {
     var body: some View {
         Text("방금 담음")
@@ -586,32 +676,6 @@ private struct JustAddedBadge: View {
                 RoundedRectangle(cornerRadius: 4)
                     .stroke(UCColor.border, lineWidth: 1)
             )
-    }
-}
-
-private struct MallBadge: View {
-    let mall: Mall
-
-    var body: some View {
-        if let assetName = mall.logoAssetName {
-            Image(assetName)
-                .resizable()
-                .scaledToFit()
-                .frame(width: 19, height: 19)
-                .accessibilityLabel(mall.displayName)
-        } else {
-            Text(mall.displayName)
-                .font(.caption2.weight(.semibold))
-                .foregroundStyle(UCColor.textPrimary)
-                .padding(.horizontal, 6)
-                .padding(.vertical, 3)
-                .background(UCColor.surface)
-                .clipShape(RoundedRectangle(cornerRadius: 4))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 4)
-                        .stroke(UCColor.border, lineWidth: 1)
-                )
-        }
     }
 }
 
@@ -635,27 +699,18 @@ private enum ListRowLayout {
 private struct ListRow: View {
     let item: Item
     let showJustAdded: Bool
+    let showWishOnThumbnail: Bool
+    let onOpen: () -> Void
     let onToggleListType: () -> Void
     let onTapPrice: () -> Void
 
     var body: some View {
         HStack(alignment: .top, spacing: 12) {
-            ZStack(alignment: .topLeading) {
-                RoundedRectangle(cornerRadius: 6)
-                    .fill(UCColor.surface)
-                    .frame(width: ListRowLayout.thumbnailSize, height: ListRowLayout.thumbnailSize)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 6)
-                            .stroke(UCColor.border, lineWidth: 1)
-                    )
-
-                if item.listType == .wishlist {
-                    Text("★")
-                        .font(.caption.bold())
-                        .foregroundStyle(.yellow)
-                        .padding(4)
-                }
-            }
+            ProductThumbnailView(
+                imageURL: item.imageURL,
+                showsWishIndicator: showWishOnThumbnail
+            )
+            .frame(width: ListRowLayout.thumbnailSize, height: ListRowLayout.thumbnailSize)
 
             VStack(alignment: .leading, spacing: ListRowLayout.textSpacing) {
                 HStack(spacing: 6) {
@@ -710,11 +765,11 @@ private struct ListRow: View {
             }
             .frame(height: ListRowLayout.infoHeight, alignment: .top)
 
-            Button(action: onToggleListType) {
-                Image(systemName: item.listType == .wishlist ? "heart.fill" : "heart")
-                    .foregroundStyle(item.listType == .wishlist ? UCColor.accent : UCColor.textDisabled)
-            }
-            .buttonStyle(.plain)
+            ListTypeToggleButton(
+                item: item,
+                showWishOnThumbnail: showWishOnThumbnail,
+                action: onToggleListType
+            )
             .frame(height: ListRowLayout.thumbnailSize, alignment: .center)
         }
         .padding(ListRowLayout.padding)
@@ -725,6 +780,8 @@ private struct ListRow: View {
             RoundedRectangle(cornerRadius: 6)
                 .stroke(UCColor.border, lineWidth: 1)
         )
+        .contentShape(Rectangle())
+        .onTapGesture(perform: onOpen)
     }
 
     private func currency(_ value: Int) -> String {
@@ -736,69 +793,60 @@ private struct ListRow: View {
 }
 
 private enum GridCardLayout {
-    static let thumbnailHeight: CGFloat = 120
     static let metaRowHeight: CGFloat = 22
     static let titleHeight: CGFloat = 40
     static let priceRowHeight: CGFloat = 22
-    static let sectionSpacing: CGFloat = 4
+    static let imageToMetaSpacing: CGFloat = 16
+    static let metaToTitleSpacing: CGFloat = 10
+    static let titleToPriceSpacing: CGFloat = 10
     static let padding: CGFloat = 12
-
-    static var cardHeight: CGFloat {
-        thumbnailHeight
-            + metaRowHeight
-            + titleHeight
-            + priceRowHeight
-            + sectionSpacing * 3
-            + padding * 2
-    }
 }
 
 private struct GridCard: View {
     let item: Item
     let showJustAdded: Bool
+    let showWishOnThumbnail: Bool
+    let onOpen: () -> Void
     let onTapPrice: () -> Void
 
     var body: some View {
-        VStack(alignment: .leading, spacing: GridCardLayout.sectionSpacing) {
-            ZStack(alignment: .topLeading) {
-                RoundedRectangle(cornerRadius: 6)
-                    .fill(UCColor.surface)
-                    .frame(height: GridCardLayout.thumbnailHeight)
-                    .frame(maxWidth: .infinity)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 6)
-                            .stroke(UCColor.border, lineWidth: 1)
-                    )
-
-                if item.listType == .wishlist {
-                    Text("★")
-                        .font(.caption.bold())
-                        .foregroundStyle(.yellow)
-                        .padding(6)
-                }
+        VStack(alignment: .leading, spacing: 0) {
+            ZStack {
+                ProductThumbnailView(
+                    imageURL: item.imageURL,
+                    cornerRadius: 4,
+                    showsWishIndicator: showWishOnThumbnail
+                )
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
 
                 if showJustAdded {
                     VStack {
                         HStack {
-                            Spacer()
                             JustAddedBadge()
+                            Spacer(minLength: 0)
                         }
-                        Spacer()
+                        Spacer(minLength: 0)
                     }
                     .padding(6)
                 }
             }
-            .frame(height: GridCardLayout.thumbnailHeight)
+            .aspectRatio(1, contentMode: .fit)
+            .frame(maxWidth: .infinity)
+            .clipped()
 
             HStack(spacing: 6) {
                 MallBadge(mall: item.mall)
+                    .frame(width: 19, height: 19)
 
                 Text(item.category.displayName)
                     .font(.caption)
                     .foregroundStyle(UCColor.textSecond)
                     .lineLimit(1)
+                    .minimumScaleFactor(0.85)
+
+                Spacer(minLength: 0)
             }
-            .padding(.top, 2)
+            .padding(.top, GridCardLayout.imageToMetaSpacing)
             .frame(height: GridCardLayout.metaRowHeight, alignment: .leading)
 
             Text(item.title)
@@ -806,6 +854,7 @@ private struct GridCard: View {
                 .foregroundStyle(UCColor.textPrimary)
                 .lineLimit(2)
                 .multilineTextAlignment(.leading)
+                .padding(.top, GridCardLayout.metaToTitleSpacing)
                 .frame(
                     maxWidth: .infinity,
                     minHeight: GridCardLayout.titleHeight,
@@ -827,6 +876,7 @@ private struct GridCard: View {
                     .buttonStyle(.plain)
                 }
             }
+            .padding(.top, GridCardLayout.titleToPriceSpacing)
             .frame(
                 maxWidth: .infinity,
                 minHeight: GridCardLayout.priceRowHeight,
@@ -835,13 +885,15 @@ private struct GridCard: View {
             )
         }
         .padding(GridCardLayout.padding)
-        .frame(maxWidth: .infinity, minHeight: GridCardLayout.cardHeight, maxHeight: GridCardLayout.cardHeight, alignment: .topLeading)
+        .frame(maxWidth: .infinity, alignment: .topLeading)
         .background(.white)
         .clipShape(RoundedRectangle(cornerRadius: 6))
         .overlay(
             RoundedRectangle(cornerRadius: 6)
                 .stroke(UCColor.border, lineWidth: 1)
         )
+        .contentShape(Rectangle())
+        .onTapGesture(perform: onOpen)
     }
 
     private func currency(_ value: Int) -> String {
