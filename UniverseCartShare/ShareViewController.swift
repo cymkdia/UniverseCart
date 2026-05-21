@@ -196,27 +196,33 @@ final class ShareViewController: UIViewController {
 
     @MainActor
     private func fetchMetadata(for url: URL) async {
-        let metadata = await OGMetadataExtractor.fetch(from: url)
+        let result = await OGMetadataExtractor.fetch(from: url)
         spinner.stopAnimating()
 
+        let metadata = result.metadata
         extractedTitle = metadata.title
         extractedImageURL = metadata.imageURL
         extractedPrice = metadata.price
 
-        titleLabel.text = metadata.title ?? "(제목 자동 추출 실패)"
-        imageLabel.text = metadata.imageURL ?? "(이미지 URL 없음)"
+        titleLabel.text = metadata.title ?? "(제목 자동 추출 실패 — 담을 때 사이트 이름 사용)"
+        imageLabel.text = metadata.imageURL ?? "(이미지 없음 — 담기는 가능)"
 
         if let price = metadata.price {
             priceLabel.text = "가격: \(formatKRW(price))"
             priceTextField.isHidden = true
             priceTextField.text = "\(price)"
         } else {
-            priceLabel.text = "가격을 찾지 못했어요 — 직접 입력해 주세요"
+            priceLabel.text = "가격 직접 입력"
             priceTextField.isHidden = false
             priceTextField.text = ""
         }
 
-        statusLabel.text = "담을 곳·카테고리 선택 후 담기"
+        if let message = result.displayMessage {
+            statusLabel.text = message
+        } else {
+            statusLabel.text = "담을 곳·카테고리 선택 후 담기"
+        }
+
         saveButton.isEnabled = true
     }
 

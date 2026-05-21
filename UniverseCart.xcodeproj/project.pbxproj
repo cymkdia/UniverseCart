@@ -71,6 +71,7 @@
 				Shared/AppGroupConstants.swift,
 				Shared/ItemUpsert.swift,
 				Shared/MallDetector.swift,
+				Shared/MetadataFetchResult.swift,
 				Shared/OGMetadataExtractor.swift,
 				Shared/ProductURLNormalizer.swift,
 				Shared/SharedItemStore.swift,

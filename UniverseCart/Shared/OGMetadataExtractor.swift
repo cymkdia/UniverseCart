@@ -4,10 +4,12 @@ struct OGMetadata {
     let title: String?
     let imageURL: String?
     let price: Int?
+
+    static let empty = OGMetadata(title: nil, imageURL: nil, price: nil)
 }
 
 enum OGMetadataExtractor {
-    static func fetch(from url: URL) async -> OGMetadata {
+    static func fetch(from url: URL) async -> MetadataFetchResult {
         var request = URLRequest(url: url)
         request.setValue(
             "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15",
@@ -15,9 +17,25 @@ enum OGMetadataExtractor {
         )
 
         do {
-            let (data, _) = try await URLSession.shared.data(for: request)
-            guard let html = String(data: data, encoding: .utf8) else {
-                return OGMetadata(title: nil, imageURL: nil, price: nil)
+            let (data, response) = try await URLSession.shared.data(for: request)
+            let statusCode = (response as? HTTPURLResponse)?.statusCode
+
+            if let statusCode, statusCode >= 400 {
+                return MetadataFetchResult(
+                    metadata: .empty,
+                    primaryIssue: .blocked(statusCode: statusCode),
+                    partialIssues: []
+                )
+            }
+
+            guard let html = String(data: data, encoding: .utf8),
+                  !html.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            else {
+                return MetadataFetchResult(
+                    metadata: .empty,
+                    primaryIssue: .parseFailed,
+                    partialIssues: []
+                )
             }
 
             let mall = MallDetector.detect(from: url)
@@ -26,10 +44,38 @@ enum OGMetadataExtractor {
                 metaContent(in: html, name: "title")
             let imageURL = metaContent(in: html, property: "og:image")
             let price = parsePrice(from: html, mall: mall)
+            let metadata = OGMetadata(title: title, imageURL: imageURL, price: price)
 
-            return OGMetadata(title: title, imageURL: imageURL, price: price)
+            var partialIssues: [MetadataFetchIssue] = []
+            if title == nil || title?.isEmpty == true {
+                partialIssues.append(.partialMissingTitle)
+            }
+            if price == nil {
+                partialIssues.append(.partialMissingPrice)
+            }
+            if imageURL == nil || imageURL?.isEmpty == true {
+                partialIssues.append(.partialMissingImage)
+            }
+
+            if title == nil, price == nil, imageURL == nil {
+                return MetadataFetchResult(
+                    metadata: metadata,
+                    primaryIssue: .parseFailed,
+                    partialIssues: []
+                )
+            }
+
+            return MetadataFetchResult(
+                metadata: metadata,
+                primaryIssue: nil,
+                partialIssues: partialIssues
+            )
         } catch {
-            return OGMetadata(title: nil, imageURL: nil, price: nil)
+            return MetadataFetchResult(
+                metadata: .empty,
+                primaryIssue: .network,
+                partialIssues: []
+            )
         }
     }
 

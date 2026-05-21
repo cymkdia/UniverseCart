@@ -916,6 +916,7 @@ private struct AddFromURLSheet: View {
     @State private var urlText = ""
     @State private var isLoading = false
     @State private var errorMessage: String?
+    @State private var noticeMessage: String?
     @State private var fetchedTitle = ""
     @State private var fetchedImageURL: String?
     @State private var priceText = ""
@@ -950,11 +951,21 @@ private struct AddFromURLSheet: View {
                     .disabled(urlText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || isLoading)
                 }
 
+                if let noticeMessage {
+                    Section {
+                        Text(noticeMessage)
+                            .font(.subheadline)
+                            .foregroundStyle(UCColor.textSecond)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                }
+
                 if let errorMessage {
                     Section {
                         Text(errorMessage)
                             .foregroundStyle(.red)
                             .font(.subheadline)
+                            .fixedSize(horizontal: false, vertical: true)
                     }
                 }
 
@@ -1007,6 +1018,7 @@ private struct AddFromURLSheet: View {
     @MainActor
     private func fetchProduct() async {
         errorMessage = nil
+        noticeMessage = nil
         hasFetched = false
         isLoading = true
         defer { isLoading = false }
@@ -1017,7 +1029,8 @@ private struct AddFromURLSheet: View {
         }
 
         urlText = url.absoluteString
-        let metadata = await OGMetadataExtractor.fetch(from: url)
+        let result = await OGMetadataExtractor.fetch(from: url)
+        let metadata = result.metadata
         detectedMall = MallDetector.detect(from: url)
 
         fetchedTitle = metadata.title ?? url.host ?? "공유 상품"
@@ -1031,8 +1044,12 @@ private struct AddFromURLSheet: View {
 
         hasFetched = true
 
-        if metadata.title == nil && metadata.price == nil {
-            errorMessage = "일부 정보만 가져왔어요. 제목·가격을 확인해 주세요."
+        if let message = result.displayMessage {
+            if result.isHardFailure {
+                errorMessage = message
+            } else {
+                noticeMessage = message
+            }
         }
     }
 
