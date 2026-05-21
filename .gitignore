@@ -1,3 +1,8 @@
 # Supabase keys (never commit)
 UniverseCart/Config/SupabaseSecrets.plist
 web/share/config.js
+
+# macOS / Xcode (do not commit)
+.DS_Store
+**/xcuserdata/
+*.xcuserstate
