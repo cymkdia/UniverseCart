@@ -4,6 +4,7 @@ enum SupabaseConfig {
     private static let secretsFileName = "SupabaseSecrets"
     private static let urlKey = "SUPABASE_URL"
     private static let anonKeyKey = "SUPABASE_ANON_KEY"
+    private static let shareWebBaseURLKey = "SHARE_WEB_BASE_URL"
 
     static var projectURL: URL? {
         guard let raw = string(for: urlKey) else { return nil }
@@ -12,6 +13,10 @@ enum SupabaseConfig {
 
     static var anonKey: String? {
         string(for: anonKeyKey)
+    }
+
+    static var shareWebBaseURL: String? {
+        string(for: shareWebBaseURLKey)
     }
 
     static var isConfigured: Bool {
