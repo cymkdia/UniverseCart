@@ -1,7 +1,8 @@
 import SwiftUI
 
 struct OnboardingPasteLinkPage: View {
-    let onFinish: () -> Void
+    let onItemSaved: (Item) -> Void
+    let onSkip: () -> Void
 
     @State private var urlText = ""
     @State private var isLoading = false
@@ -37,7 +38,7 @@ struct OnboardingPasteLinkPage: View {
                 }
 
                 if hasFetched {
-                    previewCard
+                    OnboardingItemPreviewCard(item: previewItem)
                 }
 
                 Text("복사한 링크가 없나요? 쇼핑몰에서 상품의 ‘링크 복사’를 누른 뒤 다시 와요.")
@@ -53,7 +54,7 @@ struct OnboardingPasteLinkPage: View {
                     .disabled(!canSave)
                     .opacity(canSave ? 1 : 0.45)
 
-                Button("나중에 할게요", action: onFinish)
+                Button("나중에 할게요", action: onSkip)
                     .font(.subheadline)
                     .foregroundStyle(UCColor.textSecond)
                     .frame(maxWidth: .infinity)
@@ -124,66 +125,17 @@ struct OnboardingPasteLinkPage: View {
         .disabled(urlText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || isLoading)
     }
 
-    private var previewCard: some View {
-        HStack(alignment: .top, spacing: 12) {
-            thumbnail
-
-            VStack(alignment: .leading, spacing: 6) {
-                Text("\(detectedMall.displayName) · 패션")
-                    .font(.caption)
-                    .foregroundStyle(UCColor.textSecond)
-
-                Text(fetchedTitle)
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(UCColor.textPrimary)
-                    .lineLimit(2)
-
-                if let fetchedPrice {
-                    Text(formatKRW(fetchedPrice))
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(UCColor.textPrimary)
-                } else {
-                    Text("가격 입력하기")
-                        .font(.subheadline)
-                        .foregroundStyle(UCColor.textSecond)
-                }
-
-                Label("자동으로 불러왔어요", systemImage: "checkmark.circle.fill")
-                    .font(.caption.weight(.medium))
-                    .foregroundStyle(Color(hex: "03C75A"))
-            }
-
-            Spacer(minLength: 0)
-        }
-        .padding(14)
-        .background(UCColor.surface)
-        .clipShape(RoundedRectangle(cornerRadius: 8))
-        .overlay(
-            RoundedRectangle(cornerRadius: 8)
-                .stroke(UCColor.border, lineWidth: 1)
+    private var previewItem: Item {
+        Item(
+            id: UUID(),
+            title: fetchedTitle,
+            imageURL: fetchedImageURL,
+            price: fetchedPrice,
+            productURL: urlText,
+            mall: detectedMall,
+            category: detectedMall.defaultCategory,
+            listType: .wishlist
         )
-    }
-
-    @ViewBuilder
-    private var thumbnail: some View {
-        if let fetchedImageURL, let url = URL(string: fetchedImageURL) {
-            AsyncImage(url: url) { phase in
-                switch phase {
-                case .success(let image):
-                    image
-                        .resizable()
-                        .scaledToFill()
-                default:
-                    Rectangle().fill(UCColor.border)
-                }
-            }
-            .frame(width: 80, height: 80)
-            .clipShape(RoundedRectangle(cornerRadius: 6))
-        } else {
-            RoundedRectangle(cornerRadius: 6)
-                .fill(UCColor.border)
-                .frame(width: 80, height: 80)
-        }
     }
 
     private func loadClipboardURLIfAvailable() {
@@ -220,7 +172,7 @@ struct OnboardingPasteLinkPage: View {
         let result = await OGMetadataExtractor.fetch(from: url)
         detectedMall = MallDetector.detect(from: url)
         fetchedTitle = result.metadata.title ?? url.host ?? "공유 상품"
-        fetchedImageURL = result.metadata.imageURL
+        fetchedImageURL = ImageURLNormalizer.resolve(result.metadata.imageURL)
         fetchedPrice = result.metadata.price
         hasFetched = true
         noticeMessage = result.displayMessage
@@ -232,12 +184,12 @@ struct OnboardingPasteLinkPage: View {
 
         let item = Item(
             id: UUID(),
-            title: fetchedTitle,
-            imageURL: fetchedImageURL,
+            title: fetchedTitle.trimmingCharacters(in: .whitespacesAndNewlines),
+            imageURL: ImageURLNormalizer.resolve(fetchedImageURL),
             price: fetchedPrice,
             productURL: productURL,
             mall: detectedMall,
-            category: .fashion,
+            category: detectedMall.defaultCategory,
             listType: .wishlist
         )
 
@@ -245,13 +197,6 @@ struct OnboardingPasteLinkPage: View {
         _ = ItemUpsert.apply(item, to: &items, moveUpdatedToTop: true)
         ItemStore.save(items)
         NotificationCenter.default.post(name: .localItemsDidChange, object: nil)
-        onFinish()
-    }
-
-    private func formatKRW(_ value: Int) -> String {
-        let formatter = NumberFormatter()
-        formatter.numberStyle = .decimal
-        let number = formatter.string(from: NSNumber(value: value)) ?? "\(value)"
-        return "₩\(number)"
+        onItemSaved(item)
     }
 }

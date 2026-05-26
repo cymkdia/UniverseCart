@@ -27,6 +27,7 @@ struct UniverseCartApp: App {
                     OnboardingFlowView {
                         showOnboarding = false
                     }
+                    .environment(auth)
                 }
         }
     }

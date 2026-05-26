@@ -3,7 +3,9 @@ import SwiftUI
 /// 29CM-style action buttons (e.g. 장바구니 담기 / 바로 구매하기 row).
 enum UCButtonMetrics {
     static let cornerRadius: CGFloat = 4
-    static let actionHeight: CGFloat = 52
+    static let actionHeight: CGFloat = 48
+    static let segmentHeight: CGFloat = 40
+    static let segmentCornerRadius: CGFloat = 6
     static let inlineSpacing: CGFloat = 8
     static let labelFont: Font = .subheadline.weight(.medium)
     static let toolbarFont: Font = .subheadline

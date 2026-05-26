@@ -22,6 +22,7 @@ enum UCUIKitColor {
         case .musinsa: return UIColor(hex: "2962FF")
         case .wconcept: return UIColor(hex: "D81B60")
         case .naver: return UIColor(hex: "03C75A")
+        case .kurly: return UIColor(hex: "5F0080")
         case .etc: return textDisabled
         }
     }
@@ -189,7 +190,7 @@ final class ShareProductPreviewView: UIView {
 
     func configure(mall: Mall, title: String, meta: String?, priceText: String?, showPriceField: Bool) {
         titleLabel.text = title
-        mallLabel.text = mall.displayName
+        mallLabel.text = mall.listLabel
         mallDot.backgroundColor = UCUIKitColor.mallColor(mall)
         metaLabel.text = meta
         metaLabel.isHidden = meta == nil || meta?.isEmpty == true

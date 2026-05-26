@@ -13,6 +13,7 @@ enum OnboardingMetrics {
 struct OnboardingTopBar: View {
     let step: Int
     let totalSteps: Int
+    var showsSkip: Bool = true
     let onSkip: () -> Void
 
     var body: some View {
@@ -27,7 +28,9 @@ struct OnboardingTopBar: View {
 
             Spacer(minLength: 0)
 
-            UCToolbarButton(title: "건너뛰기", action: onSkip)
+            if showsSkip {
+                UCToolbarButton(title: "건너뛰기", action: onSkip)
+            }
         }
         .padding(.horizontal, OnboardingMetrics.horizontalPadding)
         .padding(.top, 12)

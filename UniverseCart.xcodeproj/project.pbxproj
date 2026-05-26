@@ -69,10 +69,13 @@
 			membershipExceptions = (
 				Models/Item.swift,
 				Shared/AppGroupConstants.swift,
+				Shared/ImageURLNormalizer.swift,
 				Shared/ItemUpsert.swift,
 				Shared/MallDetector.swift,
 				Shared/MetadataFetchResult.swift,
 				Shared/OGMetadataExtractor.swift,
+				Shared/ProductImageLoader.swift,
+				Shared/ProductImageCache.swift,
 				Shared/ProductURLNormalizer.swift,
 				Shared/SharedItemStore.swift,
 				Shared/SharedPendingItem.swift,

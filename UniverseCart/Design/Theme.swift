@@ -46,6 +46,7 @@ enum UCColor {
         case .musinsa: return Color(hex: "2962FF")
         case .wconcept: return Color(hex: "D81B60")
         case .naver: return Color(hex: "03C75A")
+        case .kurly: return Color(hex: "5F0080")
         case .etc: return gray400
         }
     }
@@ -54,4 +55,23 @@ enum UCColor {
 enum UCLayout {
     static let gnbHeight: CGFloat = 50
     static let tabBarHeight: CGFloat = 52
+}
+
+enum UCTypography {
+    /// 시트 네비게이션 제목 (URL로 담기, 아이템 추가 등) — iOS large title(34pt) 대신 인라인
+    static let sheetNavigationTitleSize: CGFloat = 17
+    static let sheetNavigationTitle: Font = .system(size: sheetNavigationTitleSize, weight: .semibold)
+}
+
+extension View {
+    func ucSheetNavigationTitle(_ title: String) -> some View {
+        navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .principal) {
+                    Text(title)
+                        .font(UCTypography.sheetNavigationTitle)
+                        .foregroundStyle(UCColor.textPrimary)
+                }
+            }
+    }
 }

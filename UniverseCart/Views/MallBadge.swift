@@ -11,9 +11,10 @@ struct MallBadge: View {
                 .frame(width: 19, height: 19)
                 .accessibilityLabel(mall.displayName)
         } else {
-            Text(mall.displayName)
+            Text(mall.listLabel)
                 .font(.caption2.weight(.semibold))
                 .foregroundStyle(UCColor.textPrimary)
+                .lineLimit(1)
                 .padding(.horizontal, 6)
                 .padding(.vertical, 3)
                 .background(UCColor.surface)
@@ -22,6 +23,7 @@ struct MallBadge: View {
                     RoundedRectangle(cornerRadius: 4)
                         .stroke(UCColor.border, lineWidth: 1)
                 )
+                .fixedSize(horizontal: true, vertical: true)
         }
     }
 }

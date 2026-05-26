@@ -1,7 +1,7 @@
 import Foundation
 
 enum Mall: String, CaseIterable, Codable {
-    case cm29, musinsa, wconcept, naver, etc
+    case cm29, musinsa, wconcept, naver, kurly, etc
 
     var displayName: String {
         switch self {
@@ -9,7 +9,23 @@ enum Mall: String, CaseIterable, Codable {
         case .musinsa: return "무신사"
         case .wconcept: return "W컨셉"
         case .naver: return "네이버"
+        case .kurly: return "마켓컬리"
         case .etc: return "기타"
+        }
+    }
+
+    /// 리스트·그리드 메타 줄에 쓰는 짧은 이름
+    var listLabel: String {
+        switch self {
+        case .kurly: return "컬리"
+        default: return displayName
+        }
+    }
+
+    var defaultCategory: Category {
+        switch self {
+        case .kurly: return .food
+        default: return .fashion
         }
     }
 
@@ -20,6 +36,7 @@ enum Mall: String, CaseIterable, Codable {
         case .musinsa: return "mall_musinsa"
         case .wconcept: return "mall_wconcept"
         case .naver: return "mall_naver"
+        case .kurly: return nil
         case .etc: return nil
         }
     }
@@ -85,6 +102,7 @@ extension Mall {
         case .musinsa: return "https://www.musinsa.com"
         case .wconcept: return "https://www.wconcept.co.kr"
         case .naver: return "https://shopping.naver.com"
+        case .kurly: return "https://www.kurly.com"
         case .etc: return "https://www.google.com"
         }
     }

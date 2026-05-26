@@ -297,12 +297,20 @@ struct MainListView: View {
         }
     }
 
+    private func sanitizeItems(_ source: [Item]) -> [Item] {
+        source.map { item in
+            var copy = item
+            copy.imageURL = ImageURLNormalizer.resolve(item.imageURL)
+            return copy
+        }
+    }
+
     private func loadStoredItemsIfNeeded() {
         guard !didLoadStoredItems else { return }
         didLoadStoredItems = true
 
         if let stored = ItemStore.load(), !stored.isEmpty {
-            items = stored
+            items = sanitizeItems(stored)
         } else {
             items = DummyItems.sample
             ItemStore.save(items)
@@ -318,7 +326,7 @@ struct MainListView: View {
             let incoming = Item(
                 id: shared.id,
                 title: shared.title,
-                imageURL: shared.imageURL,
+                imageURL: ImageURLNormalizer.resolve(shared.imageURL),
                 price: shared.price,
                 productURL: shared.productURL,
                 mall: shared.mall,
@@ -334,7 +342,9 @@ struct MainListView: View {
 
     @discardableResult
     private func addOrUpdateItem(_ incoming: Item) -> UUID {
-        ItemUpsert.apply(incoming, to: &items, moveUpdatedToTop: true)
+        var item = incoming
+        item.imageURL = ImageURLNormalizer.resolve(incoming.imageURL)
+        return ItemUpsert.apply(item, to: &items, moveUpdatedToTop: true)
     }
 
     private func markJustAdded(_ ids: [UUID]) {
@@ -365,39 +375,37 @@ struct MainListView: View {
 
             Spacer()
 
-            HStack(spacing: 8) {
+            Menu {
                 Button {
                     showingURLSheet = true
                 } label: {
-                    Image(systemName: "link")
-                        .font(.system(size: 18, weight: .semibold))
-                        .foregroundStyle(UCColor.textPrimary)
-                        .frame(width: 36, height: 36)
-                        .background(UCColor.surface)
-                        .clipShape(RoundedRectangle(cornerRadius: 7))
+                    Label("링크로 담기", systemImage: "link")
                 }
 
                 Button {
                     showingAddSheet = true
                 } label: {
-                    Image(systemName: "plus")
-                        .font(.system(size: 18, weight: .semibold))
-                        .foregroundStyle(UCColor.textPrimary)
-                        .frame(width: 36, height: 36)
-                        .background(UCColor.surface)
-                        .clipShape(RoundedRectangle(cornerRadius: 7))
+                    Label("직접 입력", systemImage: "square.and.pencil")
                 }
+            } label: {
+                Image(systemName: "plus")
+                    .font(.system(size: 18, weight: .semibold))
+                    .foregroundStyle(UCColor.textPrimary)
+                    .frame(width: 36, height: 36)
+                    .background(UCColor.surface)
+                    .clipShape(RoundedRectangle(cornerRadius: 7))
+            }
+            .accessibilityLabel("상품 담기")
 
-                Button {
-                    isGrid.toggle()
-                } label: {
-                    Image(systemName: isGrid ? "list.bullet" : "square.grid.2x2")
-                        .font(.system(size: 18, weight: .semibold))
-                        .foregroundStyle(UCColor.textPrimary)
-                        .frame(width: 36, height: 36)
-                        .background(UCColor.surface)
-                        .clipShape(RoundedRectangle(cornerRadius: 7))
-                }
+            Button {
+                isGrid.toggle()
+            } label: {
+                Image(systemName: isGrid ? "list.bullet" : "square.grid.2x2")
+                    .font(.system(size: 18, weight: .semibold))
+                    .foregroundStyle(UCColor.textPrimary)
+                    .frame(width: 36, height: 36)
+                    .background(UCColor.surface)
+                    .clipShape(RoundedRectangle(cornerRadius: 7))
             }
         }
     }
@@ -415,11 +423,11 @@ struct MainListView: View {
                             selectedSegment == segment ? UCColor.bg : UCColor.textPrimary
                         )
                         .frame(maxWidth: .infinity)
-                        .padding(.vertical, 10)
+                        .frame(height: UCButtonMetrics.segmentHeight)
                         .background(
                             selectedSegment == segment ? UCColor.textPrimary : Color.clear
                         )
-                        .clipShape(RoundedRectangle(cornerRadius: 5))
+                        .clipShape(RoundedRectangle(cornerRadius: UCButtonMetrics.segmentCornerRadius))
                 }
                 .buttonStyle(.plain)
             }
@@ -798,9 +806,12 @@ private struct ListRow: View {
         HStack(alignment: .top, spacing: 12) {
             ProductThumbnailView(
                 imageURL: item.imageURL,
+                mall: item.mall,
+                productPageURL: item.productURL,
                 showsWishIndicator: showWishOnThumbnail
             )
             .frame(width: ListRowLayout.thumbnailSize, height: ListRowLayout.thumbnailSize)
+            .clipped()
 
             VStack(alignment: .leading, spacing: ListRowLayout.textSpacing) {
                 HStack(spacing: 6) {
@@ -818,7 +829,7 @@ private struct ListRow: View {
                     }
                 }
                 .padding(.top, 2)
-                .frame(height: ListRowLayout.metaRowHeight, alignment: .leading)
+                .frame(minHeight: ListRowLayout.metaRowHeight, alignment: .leading)
 
                 Text(item.title)
                     .font(.subheadline.weight(.semibold))
@@ -853,7 +864,8 @@ private struct ListRow: View {
                     alignment: .leading
                 )
             }
-            .frame(height: ListRowLayout.infoHeight, alignment: .top)
+            .frame(minHeight: ListRowLayout.infoHeight, alignment: .top)
+            .layoutPriority(1)
 
             ListTypeToggleButton(
                 item: item,
@@ -863,7 +875,7 @@ private struct ListRow: View {
             .frame(height: ListRowLayout.thumbnailSize, alignment: .center)
         }
         .padding(ListRowLayout.padding)
-        .frame(maxWidth: .infinity, minHeight: ListRowLayout.rowHeight, maxHeight: ListRowLayout.rowHeight, alignment: .topLeading)
+        .frame(maxWidth: .infinity, minHeight: ListRowLayout.rowHeight, alignment: .topLeading)
         .background(.white)
         .clipShape(RoundedRectangle(cornerRadius: 6))
         .overlay(
@@ -904,10 +916,11 @@ private struct GridCard: View {
             ZStack {
                 ProductThumbnailView(
                     imageURL: item.imageURL,
+                    mall: item.mall,
+                    productPageURL: item.productURL,
                     cornerRadius: 4,
                     showsWishIndicator: showWishOnThumbnail
                 )
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
 
                 if showJustAdded {
                     VStack {
@@ -925,8 +938,7 @@ private struct GridCard: View {
             .clipped()
 
             HStack(spacing: 6) {
-                MallBadge(mall: item.mall)
-                    .frame(width: 19, height: 19)
+                mallMark
 
                 Text(item.category.displayName)
                     .font(.caption)
@@ -937,7 +949,7 @@ private struct GridCard: View {
                 Spacer(minLength: 0)
             }
             .padding(.top, GridCardLayout.imageToMetaSpacing)
-            .frame(height: GridCardLayout.metaRowHeight, alignment: .leading)
+            .frame(minHeight: GridCardLayout.metaRowHeight, alignment: .leading)
 
             Text(item.title)
                 .font(.subheadline.weight(.semibold))
@@ -945,12 +957,7 @@ private struct GridCard: View {
                 .lineLimit(2)
                 .multilineTextAlignment(.leading)
                 .padding(.top, GridCardLayout.metaToTitleSpacing)
-                .frame(
-                    maxWidth: .infinity,
-                    minHeight: GridCardLayout.titleHeight,
-                    maxHeight: GridCardLayout.titleHeight,
-                    alignment: .topLeading
-                )
+                .frame(maxWidth: .infinity, minHeight: GridCardLayout.titleHeight, alignment: .topLeading)
 
             Group {
                 if let price = item.price {
@@ -986,6 +993,16 @@ private struct GridCard: View {
         .onTapGesture(perform: onOpen)
     }
 
+    @ViewBuilder
+    private var mallMark: some View {
+        if item.mall.logoAssetName != nil {
+            MallBadge(mall: item.mall)
+                .frame(width: 19, height: 19)
+        } else {
+            MallBadge(mall: item.mall)
+        }
+    }
+
     private func currency(_ value: Int) -> String {
         let formatter = NumberFormatter()
         formatter.numberStyle = .decimal
@@ -1014,7 +1031,7 @@ private struct AddFromURLSheet: View {
     var body: some View {
         NavigationStack {
             Form {
-                Section("상품 URL") {
+                Section {
                     TextField("https://...", text: $urlText)
                         .textInputAutocapitalization(.never)
                         .autocorrectionDisabled()
@@ -1033,6 +1050,11 @@ private struct AddFromURLSheet: View {
                         }
                     }
                     .disabled(urlText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || isLoading)
+                } header: {
+                    Text("상품 링크")
+                } footer: {
+                    Text("쇼핑몰에서 복사한 상품 URL을 붙여넣으면 이미지·가격을 자동으로 가져와요.")
+                        .font(.caption)
                 }
 
                 if let noticeMessage {
@@ -1054,18 +1076,18 @@ private struct AddFromURLSheet: View {
                 }
 
                 if hasFetched {
-                    Section("미리보기") {
-                        Text(fetchedTitle)
-                            .font(.subheadline.weight(.semibold))
-
-                        Text(detectedMall.displayName)
-                            .foregroundStyle(UCColor.textSecond)
-
-                        TextField("가격(숫자만)", text: $priceText)
-                            .keyboardType(.numberPad)
+                    Section {
+                        ItemPreviewCard(item: previewItem)
+                    } header: {
+                        Text("미리보기")
+                    } footer: {
+                        Text("이미지가 비어 있으면 쇼핑몰에서 막았을 수 있어요. 그래도 담을 수 있어요.")
+                            .font(.caption)
                     }
 
-                    Section("분류") {
+                    Section("가격·분류") {
+                        TextField("가격(숫자만)", text: $priceText)
+                            .keyboardType(.numberPad)
                         Picker("카테고리", selection: $selectedCategory) {
                             ForEach(Category.allCases, id: \.self) { category in
                                 Text(category.displayName).tag(category)
@@ -1080,7 +1102,7 @@ private struct AddFromURLSheet: View {
                     }
                 }
             }
-            .navigationTitle("URL로 담기")
+            .ucSheetNavigationTitle("링크로 담기")
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
                     Button("취소") { dismiss() }
@@ -1093,6 +1115,19 @@ private struct AddFromURLSheet: View {
                 }
             }
         }
+    }
+
+    private var previewItem: Item {
+        Item(
+            id: UUID(),
+            title: fetchedTitle,
+            imageURL: fetchedImageURL,
+            price: Int(priceText.filter(\.isNumber)),
+            productURL: urlText,
+            mall: detectedMall,
+            category: selectedCategory,
+            listType: selectedListType
+        )
     }
 
     private var canSave: Bool {
@@ -1115,10 +1150,11 @@ private struct AddFromURLSheet: View {
         urlText = url.absoluteString
         let result = await OGMetadataExtractor.fetch(from: url)
         let metadata = result.metadata
-        detectedMall = MallDetector.detect(from: url)
 
         fetchedTitle = metadata.title ?? url.host ?? "공유 상품"
-        fetchedImageURL = metadata.imageURL
+        fetchedImageURL = ImageURLNormalizer.resolve(metadata.imageURL)
+        detectedMall = MallDetector.detect(from: url)
+        selectedCategory = detectedMall.defaultCategory
 
         if let price = metadata.price {
             priceText = "\(price)"
@@ -1146,7 +1182,7 @@ private struct AddFromURLSheet: View {
         let newItem = Item(
             id: UUID(),
             title: fetchedTitle.trimmingCharacters(in: .whitespacesAndNewlines),
-            imageURL: fetchedImageURL,
+            imageURL: ImageURLNormalizer.resolve(fetchedImageURL),
             price: price,
             productURL: url.absoluteString,
             mall: detectedMall,
@@ -1168,6 +1204,7 @@ private struct AddItemSheet: View {
 
     @State private var title: String = ""
     @State private var priceText: String = ""
+    @State private var productURLText: String = ""
     @State private var selectedMall: Mall = .cm29
     @State private var selectedCategory: Category = .fashion
     @State private var selectedListType: ListType = .wishlist
@@ -1177,10 +1214,23 @@ private struct AddItemSheet: View {
     var body: some View {
         NavigationStack {
             Form {
+                Section {
+                    Text("링크 없이 기억나는 정보만 적어 담을 수 있어요. 쇼핑몰에서 ‘공유’하거나 ‘링크로 담기’가 더 편해요.")
+                        .font(.subheadline)
+                        .foregroundStyle(UCColor.textSecond)
+                        .fixedSize(horizontal: false, vertical: true)
+                } header: {
+                    Text("직접 입력이란?")
+                }
+
                 Section("상품 정보") {
                     TextField("상품명", text: $title)
                     TextField("가격(숫자만)", text: $priceText)
                         .keyboardType(.numberPad)
+                    TextField("상품 링크 (선택)", text: $productURLText)
+                        .textInputAutocapitalization(.never)
+                        .autocorrectionDisabled()
+                        .keyboardType(.URL)
                 }
 
                 Section("분류") {
@@ -1203,30 +1253,48 @@ private struct AddItemSheet: View {
                     }
                 }
             }
-            .navigationTitle("아이템 추가")
+            .ucSheetNavigationTitle("직접 입력")
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
                     Button("취소") { dismiss() }
                 }
                 ToolbarItem(placement: .topBarTrailing) {
                     Button("저장") {
-                        let newItem = Item(
-                            id: UUID(),
-                            title: title.trimmingCharacters(in: .whitespacesAndNewlines),
-                            imageURL: nil,
-                            price: Int(priceText.filter(\.isNumber)),
-                            productURL: "https://example.com",
-                            mall: selectedMall,
-                            category: selectedCategory,
-                            listType: selectedListType
-                        )
-                        onSave(newItem)
-                        dismiss()
+                        saveManualItem()
                     }
                     .disabled(title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                 }
             }
+            .onChange(of: selectedMall) { _, mall in
+                selectedCategory = mall.defaultCategory
+            }
         }
+    }
+
+    private func saveManualItem() {
+        let trimmedURL = productURLText.trimmingCharacters(in: .whitespacesAndNewlines)
+        let productURL: String
+        if let normalized = ProductURLNormalizer.canonicalString(from: trimmedURL), !trimmedURL.isEmpty {
+            productURL = normalized
+        } else {
+            productURL = "universecart://manual/\(UUID().uuidString)"
+        }
+
+        let digits = priceText.filter(\.isNumber)
+        let price = Int(digits).flatMap { $0 > 0 ? $0 : nil }
+
+        let newItem = Item(
+            id: UUID(),
+            title: title.trimmingCharacters(in: .whitespacesAndNewlines),
+            imageURL: nil,
+            price: price,
+            productURL: productURL,
+            mall: selectedMall,
+            category: selectedCategory,
+            listType: selectedListType
+        )
+        onSave(newItem)
+        dismiss()
     }
 }
 
