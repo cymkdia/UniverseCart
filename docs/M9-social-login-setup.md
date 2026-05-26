@@ -1,5 +1,7 @@
 # M9 — Apple · 카카오 로그인 (Supabase)
 
+> **⏸ 현재 보류:** 카카오 **비즈니스(개인) 등록** 후 이어갑니다. 앱에서는 카카오 버튼을 숨기고 **이메일 로그인**을 사용하세요.
+
 앱 코드는 준비됐어요. **Supabase 대시보드 + Apple/Kakao 개발자 설정**을 해야 실제로 로그인됩니다.
 
 리다이렉트 URL (앱과 동일해야 함):
@@ -65,12 +67,14 @@ https://pnoqhvoqedkjgelollug.supabase.co/auth/v1/callback
 (본인 Supabase 프로젝트 URL로 바꾸기 — `SUPABASE_URL` + `/auth/v1/callback`)
 
 5. **REST API 키** 복사
-6. **제품 설정 → 카카오 로그인 → 동의항목** (KOE205 방지):
-   - `닉네임(profile_nickname)` — **ON** (선택 동의 OK)
-   - `프로필 사진(profile_image)` — **ON**
-   - `카카오계정(이메일)` — **OFF** (비즈 앱이 아니면 OFF, 아래 Supabase 설정과 짝)
+6. **앱 설정 → 비즈니스** → **「개인으로 등록」** (또는 사업자 정보 등록)  
+   - Supabase가 카카오에 **이메일(account_email)** 을 항상 요청합니다. 개인 앱은 여기 등록 후에야 이메일 동의항목을 켤 수 있어요.
+7. **제품 설정 → 카카오 로그인 → 동의항목** (KOE205 방지 — **세 가지 모두**):
+   - `닉네임(profile_nickname)` — **ON** + 동의 목적 입력
+   - `프로필 사진(profile_image)` — **ON** + 동의 목적 입력
+   - `카카오계정(이메일)(account_email)` — **ON** + 동의 목적 입력 (6번 후에 가능)
 
-**OpenID Connect** (일반 화면 두 번째 스위치): Supabase 웹 OAuth만 쓸 때는 **OFF** 로 두어도 됩니다. ON은 OIDC·ID 토큰용입니다.
+**OpenID Connect** (일반 화면): **OFF** 로 두어도 됩니다 (Supabase 일반 로그인용).
 
 ### B. Supabase
 
@@ -97,6 +101,12 @@ https://pnoqhvoqedkjgelollug.supabase.co/auth/v1/callback
 | 카카오 후 앱으로 안 돌아옴 | Supabase Redirect URLs + Kakao Redirect URI |
 | `Provider not enabled` | Supabase에서 해당 Provider Enable |
 | 시뮬레이터 카카오 실패 | 실기기에서 먼저 테스트 |
+
+### KOE205 (설정하지 않은 동의 항목)
+
+Supabase + 카카오 조합은 **이메일·닉네임·프로필 사진** 스코프를 기본으로 요청합니다. 카카오 콘솔에서 **세 동의항목이 모두 ON**이어야 합니다. 이메일은 **비즈니스 → 개인으로 등록** 후 켤 수 있어요.
+
+에러에 `account_email`만 나와도 위 6·7번을 진행하세요.
 
 ### 카카오 로그인 체크리스트 (화면은 뜨는데 실패할 때)
 

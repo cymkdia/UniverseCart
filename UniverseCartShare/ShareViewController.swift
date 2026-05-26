@@ -7,24 +7,24 @@ import UIKit
 import UniformTypeIdentifiers
 
 final class ShareViewController: UIViewController {
+    private let scrollView = UIScrollView()
+    private let contentStack = UIStackView()
+
+    private let headerLabel = UILabel()
     private let statusLabel = UILabel()
-    private let titleLabel = UILabel()
-    private let imageLabel = UILabel()
+    private let spinner = UIActivityIndicatorView(style: .medium)
 
-    private let priceLabel = UILabel()
-    private let priceTextField = UITextField()
+    private let previewCard = ShareSurfaceCardView()
+    private let productPreview = ShareProductPreviewView()
 
-    private let listTypeLabel = UILabel()
     private let listTypeBar = ShareSegmentBar(titles: ["위시리스트", "내 장바구니"])
-
-    private let categoryLabel = UILabel()
     private let categoryBar = ShareCategoryBarView()
 
     private let saveButton = UIButton(type: .system)
     private let cancelButton = UIButton(type: .system)
-    private let spinner = UIActivityIndicatorView(style: .large)
 
     private var sharedURL: URL?
+    private var detectedMall: Mall = .etc
     private var extractedTitle: String?
     private var extractedImageURL: String?
     private var extractedPrice: Int?
@@ -40,89 +40,68 @@ final class ShareViewController: UIViewController {
     }
 
     private func setupUI() {
+        headerLabel.text = "Universe Cart"
+        headerLabel.font = .systemFont(ofSize: 20, weight: .bold)
+        headerLabel.textColor = UCUIKitColor.textPrimary
+
         statusLabel.numberOfLines = 0
-        statusLabel.font = .preferredFont(forTextStyle: .body)
+        statusLabel.font = .systemFont(ofSize: 14)
         statusLabel.textColor = UCUIKitColor.textSecond
+        statusLabel.text = "공유 URL 확인 중..."
 
-        titleLabel.numberOfLines = 2
-        titleLabel.font = .preferredFont(forTextStyle: .headline)
-        titleLabel.textColor = UCUIKitColor.textPrimary
+        spinner.hidesWhenStopped = true
+        spinner.color = UCUIKitColor.textSecond
 
-        imageLabel.numberOfLines = 2
-        imageLabel.font = .preferredFont(forTextStyle: .caption1)
-        imageLabel.textColor = UCUIKitColor.textSecond
+        previewCard.setArrangedSubviews([productPreview])
+        previewCard.alpha = 0.6
 
-        priceLabel.font = .preferredFont(forTextStyle: .subheadline)
-        priceLabel.textColor = UCUIKitColor.textPrimary
-
-        priceTextField.placeholder = "가격 직접 입력 (원)"
-        priceTextField.keyboardType = .numberPad
-        priceTextField.borderStyle = .roundedRect
-        priceTextField.isHidden = true
-
-        listTypeLabel.text = "담을 곳"
-        listTypeLabel.font = .systemFont(ofSize: 13, weight: .medium)
-        listTypeLabel.textColor = UCUIKitColor.textPrimary
-
-        categoryLabel.text = "카테고리 선택"
-        categoryLabel.font = .systemFont(ofSize: 13, weight: .medium)
-        categoryLabel.textColor = UCUIKitColor.textPrimary
-
-        saveButton.setTitle("담기", for: .normal)
-        saveButton.titleLabel?.font = .boldSystemFont(ofSize: 17)
-        saveButton.tintColor = UIColor(hex: "FF4800")
+        ShareButtonStyle.applyPrimary(saveButton, title: "담기")
+        ShareButtonStyle.applySecondary(cancelButton, title: "취소")
         saveButton.addTarget(self, action: #selector(didTapSave), for: .touchUpInside)
-        saveButton.isEnabled = false
-
-        cancelButton.setTitle("취소", for: .normal)
-        cancelButton.tintColor = UCUIKitColor.textSecond
         cancelButton.addTarget(self, action: #selector(didTapCancel), for: .touchUpInside)
+        saveButton.isEnabled = false
+        saveButton.alpha = 0.45
 
         let buttonRow = UIStackView(arrangedSubviews: [cancelButton, saveButton])
         buttonRow.axis = .horizontal
-        buttonRow.spacing = 16
+        buttonRow.spacing = 10
         buttonRow.distribution = .fillEqually
 
-        let priceSection = UIStackView(arrangedSubviews: [priceLabel, priceTextField])
-        priceSection.axis = .vertical
-        priceSection.spacing = 8
+        let statusRow = UIStackView(arrangedSubviews: [spinner, statusLabel])
+        statusRow.axis = .horizontal
+        statusRow.spacing = 8
+        statusRow.alignment = .center
 
-        let listTypeSection = UIStackView(arrangedSubviews: [listTypeLabel, listTypeBar])
-        listTypeSection.axis = .vertical
-        listTypeSection.spacing = 8
+        contentStack.axis = .vertical
+        contentStack.spacing = 16
+        contentStack.translatesAutoresizingMaskIntoConstraints = false
 
-        categoryBar.translatesAutoresizingMaskIntoConstraints = false
-        buttonRow.translatesAutoresizingMaskIntoConstraints = false
+        contentStack.addArrangedSubview(headerLabel)
+        contentStack.addArrangedSubview(statusRow)
+        contentStack.addArrangedSubview(previewCard)
+        contentStack.addArrangedSubview(listTypeBar)
+        contentStack.addArrangedSubview(categoryBar)
+        contentStack.addArrangedSubview(buttonRow)
 
-        let upperStack = UIStackView(arrangedSubviews: [
-            statusLabel,
-            spinner,
-            titleLabel,
-            imageLabel,
-            priceSection,
-            listTypeSection,
-            categoryLabel
-        ])
-        upperStack.axis = .vertical
-        upperStack.spacing = 12
-        upperStack.translatesAutoresizingMaskIntoConstraints = false
-
-        view.addSubview(upperStack)
-        view.addSubview(categoryBar)
-        view.addSubview(buttonRow)
+        scrollView.translatesAutoresizingMaskIntoConstraints = false
+        scrollView.alwaysBounceVertical = true
+        view.addSubview(scrollView)
+        scrollView.addSubview(contentStack)
 
         NSLayoutConstraint.activate([
-            upperStack.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 20),
-            upperStack.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -20),
-            upperStack.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 20),
+            saveButton.heightAnchor.constraint(equalToConstant: ShareButtonStyle.actionHeight),
+            cancelButton.heightAnchor.constraint(equalToConstant: ShareButtonStyle.actionHeight),
 
-            categoryBar.topAnchor.constraint(equalTo: upperStack.bottomAnchor, constant: 4),
-            categoryBar.leadingAnchor.constraint(equalTo: view.leadingAnchor),
-            categoryBar.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            scrollView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            scrollView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            scrollView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
+            scrollView.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor),
 
-            buttonRow.topAnchor.constraint(equalTo: categoryBar.bottomAnchor, constant: 16),
-            buttonRow.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 20),
-            buttonRow.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -20)
+            contentStack.leadingAnchor.constraint(equalTo: scrollView.contentLayoutGuide.leadingAnchor, constant: 20),
+            contentStack.trailingAnchor.constraint(equalTo: scrollView.contentLayoutGuide.trailingAnchor, constant: -20),
+            contentStack.topAnchor.constraint(equalTo: scrollView.contentLayoutGuide.topAnchor, constant: 16),
+            contentStack.bottomAnchor.constraint(equalTo: scrollView.contentLayoutGuide.bottomAnchor, constant: -20),
+            contentStack.widthAnchor.constraint(equalTo: scrollView.frameLayoutGuide.widthAnchor, constant: -40),
         ])
     }
 
@@ -136,17 +115,27 @@ final class ShareViewController: UIViewController {
 
     @MainActor
     private func loadSharedURL() async {
+        setSaveEnabled(false)
         statusLabel.text = "공유 URL 확인 중..."
         spinner.startAnimating()
+        previewCard.alpha = 0.6
 
         guard let url = await extractSharedURL() else {
             spinner.stopAnimating()
-            statusLabel.text = "URL을 찾지 못했어요. Safari/쇼핑앱에서 링크를 공유해 주세요."
+            statusLabel.text = "URL을 찾지 못했어요. Safari·쇼핑앱에서 링크를 공유해 주세요."
+            productPreview.configure(
+                mall: .etc,
+                title: "링크를 불러오지 못했어요",
+                meta: nil,
+                priceText: nil,
+                showPriceField: false
+            )
             return
         }
 
         sharedURL = url
-        statusLabel.text = "상품 정보 불러오는 중...\n\(url.host ?? url.absoluteString)"
+        detectedMall = MallDetector.detect(from: url)
+        statusLabel.text = "상품 정보 불러오는 중..."
         await fetchMetadata(for: url)
     }
 
@@ -198,37 +187,55 @@ final class ShareViewController: UIViewController {
     private func fetchMetadata(for url: URL) async {
         let result = await OGMetadataExtractor.fetch(from: url)
         spinner.stopAnimating()
+        previewCard.alpha = 1
 
         let metadata = result.metadata
         extractedTitle = metadata.title
         extractedImageURL = metadata.imageURL
         extractedPrice = metadata.price
 
-        titleLabel.text = metadata.title ?? "(제목 자동 추출 실패 — 담을 때 사이트 이름 사용)"
-        imageLabel.text = metadata.imageURL ?? "(이미지 없음 — 담기는 가능)"
+        let title = metadata.title ?? "(제목 자동 추출 실패)"
+        let hostMeta = url.host.map { "링크: \($0)" }
 
         if let price = metadata.price {
-            priceLabel.text = "가격: \(formatKRW(price))"
-            priceTextField.isHidden = true
-            priceTextField.text = "\(price)"
+            productPreview.configure(
+                mall: detectedMall,
+                title: title,
+                meta: hostMeta,
+                priceText: formatKRW(price),
+                showPriceField: false
+            )
+            productPreview.priceField.text = "\(price)"
         } else {
-            priceLabel.text = "가격 직접 입력"
-            priceTextField.isHidden = false
-            priceTextField.text = ""
+            productPreview.configure(
+                mall: detectedMall,
+                title: title,
+                meta: hostMeta,
+                priceText: nil,
+                showPriceField: true
+            )
+            productPreview.priceField.text = ""
         }
+
+        productPreview.setThumbnail(urlString: metadata.imageURL)
 
         if let message = result.displayMessage {
             statusLabel.text = message
         } else {
-            statusLabel.text = "담을 곳·카테고리 선택 후 담기"
+            statusLabel.text = "담을 곳과 카테고리를 선택한 뒤 담기를 눌러 주세요."
         }
 
-        saveButton.isEnabled = true
+        setSaveEnabled(true)
+    }
+
+    private func setSaveEnabled(_ enabled: Bool) {
+        saveButton.isEnabled = enabled
+        saveButton.alpha = enabled ? 1 : 0.45
     }
 
     private func resolvedPriceForSave() -> (price: Int?, priceManual: Bool) {
-        if !priceTextField.isHidden {
-            let manualDigits = priceTextField.text?.filter(\.isNumber) ?? ""
+        if !productPreview.priceField.isHidden {
+            let manualDigits = productPreview.priceField.text?.filter(\.isNumber) ?? ""
             if let manual = Int(manualDigits), manual > 0 {
                 return (manual, true)
             }
@@ -251,7 +258,7 @@ final class ShareViewController: UIViewController {
             price: price,
             priceManual: priceManual,
             productURL: productURL,
-            mall: MallDetector.detect(from: url),
+            mall: detectedMall,
             listType: selectedListType,
             category: selectedCategory,
             createdAt: Date()

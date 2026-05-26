@@ -92,8 +92,8 @@
 		FA1794CD2FBDA754002D8A87 /* UniverseCart */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			exceptions = (
-				FA1795492FBDD7DC002D8A87 /* Exceptions for "UniverseCart" folder in "UniverseCartShare" target */,
 				FA17954B2FBDD7DC002D8A87 /* Exceptions for "UniverseCart" folder in "UniverseCart" target */,
+				FA1795492FBDD7DC002D8A87 /* Exceptions for "UniverseCart" folder in "UniverseCartShare" target */,
 			);
 			path = UniverseCart;
 			sourceTree = "<group>";

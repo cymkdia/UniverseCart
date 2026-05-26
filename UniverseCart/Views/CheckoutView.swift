@@ -109,14 +109,8 @@ struct CheckoutView: View {
                 openCheckout(for: mall, items: items)
             } label: {
                 Text("\(mall.displayName)에서 결제하기")
-                    .font(.subheadline.weight(.semibold))
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 10)
-                    .foregroundStyle(.white)
-                    .background(UCColor.textPrimary)
-                    .clipShape(RoundedRectangle(cornerRadius: 6))
             }
-            .buttonStyle(.plain)
+            .buttonStyle(UCPrimaryButtonStyle())
 
             Text("각 쇼핑몰 앱·Safari에서 결제를 이어가요.")
                 .font(.caption2)

@@ -322,21 +322,9 @@ struct ItemDetailView: View {
     }
 
     private var openStoreButton: some View {
-        Button {
+        UCPrimaryCTA("\(item.mall.displayName)에서 보기", systemImage: "arrow.up.right.square") {
             openProductURL()
-        } label: {
-            HStack(spacing: 8) {
-                Image(systemName: "arrow.up.right.square")
-                Text("\(item.mall.displayName)에서 보기")
-                    .fontWeight(.semibold)
-            }
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 14)
-            .foregroundStyle(.white)
-            .background(UCColor.textPrimary)
-            .clipShape(RoundedRectangle(cornerRadius: 8))
         }
-        .buttonStyle(.plain)
     }
 
     private var hintText: some View {

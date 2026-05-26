@@ -49,6 +49,21 @@ struct MainListView: View {
     @State private var priceInputText = ""
     @State private var justAddedItemIDs: Set<UUID> = []
     @State private var selectedItemID: UUID?
+    @State private var shareProfile: ProfileRecord?
+    @State private var showingShareWishlistSheet = false
+
+    private var wishlistItems: [Item] {
+        items.filter { $0.listType == .wishlist }
+    }
+
+    private var wishlistPublicCount: Int {
+        guard shareProfile?.shareEnabled == true else { return 0 }
+        return wishlistItems.count
+    }
+
+    private var wishlistPrivateCount: Int {
+        wishlistItems.count - wishlistPublicCount
+    }
 
     private var filteredItems: [Item] {
         items.filter { item in
@@ -122,7 +137,7 @@ struct MainListView: View {
                 VStack(spacing: 12) {
                     topBar
                     segmentPicker
-                    summaryBar
+                    headerSummary
                     checkoutEntry
                 }
                 .padding(.horizontal, 16)
@@ -138,6 +153,11 @@ struct MainListView: View {
                 Spacer(minLength: 0)
             }
             .background(UCColor.bg.ignoresSafeArea())
+            .safeAreaInset(edge: .bottom, spacing: 0) {
+                if selectedSegment == .wishlist {
+                    wishlistShareButton
+                }
+            }
             .navigationDestination(item: $selectedItemID) { itemID in
                 if let item = items.first(where: { $0.id == itemID }) {
                     ItemDetailView(
@@ -171,9 +191,13 @@ struct MainListView: View {
                 onCancel: closePriceSheet
             )
         }
+        .sheet(isPresented: $showingShareWishlistSheet) {
+            ShareWishlistSheet(shareProfile: $shareProfile)
+        }
         .onAppear {
             loadStoredItemsIfNeeded()
             importPendingSharedItems()
+            Task { await loadShareProfileIfNeeded() }
         }
         .onChange(of: scenePhase) { newPhase in
             if newPhase == .active {
@@ -186,8 +210,37 @@ struct MainListView: View {
             pushToCloudIfNeeded(newItems)
         }
         .onChange(of: auth.isAuthenticated) { _, isLoggedIn in
-            guard isLoggedIn, didLoadStoredItems else { return }
-            Task { await syncFromCloud() }
+            if isLoggedIn, didLoadStoredItems {
+                Task { await syncFromCloud() }
+            }
+            Task { await loadShareProfileIfNeeded() }
+        }
+        .onChange(of: selectedSegment) { _, segment in
+            guard segment == .wishlist else { return }
+            Task { await loadShareProfileIfNeeded() }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .localItemsDidChange)) { _ in
+            guard didLoadStoredItems, let stored = ItemStore.load() else { return }
+            items = stored
+        }
+    }
+
+    private func loadShareProfileIfNeeded() async {
+        guard auth.isAuthenticated,
+              let client = SupabaseService.shared.client,
+              let userId = auth.currentUserId()
+        else {
+            shareProfile = nil
+            return
+        }
+
+        do {
+            shareProfile = try await ShareProfileService.fetchProfile(
+                client: client,
+                userId: userId
+            )
+        } catch {
+            auth.statusMessage = "공유 설정 불러오기 실패: \(error.localizedDescription)"
         }
     }
 
@@ -371,18 +424,49 @@ struct MainListView: View {
                 .buttonStyle(.plain)
             }
         }
-        .padding(4)
+    }
+
+    @ViewBuilder
+    private var headerSummary: some View {
+        switch selectedSegment {
+        case .wishlist:
+            wishlistSummaryBar
+        default:
+            summaryBar
+        }
+    }
+
+    private var wishlistSummaryBar: some View {
+        HStack(spacing: 6) {
+            summaryMetric(label: "위시 아이템", value: "\(wishlistItems.count)", suffix: "개")
+            summaryDot
+            summaryMetric(label: "공개", value: "\(wishlistPublicCount)", suffix: "개")
+            summaryDot
+            summaryMetric(label: "비공개", value: "\(wishlistPrivateCount)", suffix: "개")
+        }
+        .frame(maxWidth: .infinity, alignment: .center)
+        .padding(12)
         .background(UCColor.surface)
-        .clipShape(RoundedRectangle(cornerRadius: 7))
+        .clipShape(RoundedRectangle(cornerRadius: 6))
         .overlay(
-            RoundedRectangle(cornerRadius: 7)
+            RoundedRectangle(cornerRadius: 6)
                 .stroke(UCColor.border, lineWidth: 1)
         )
     }
 
+    private var wishlistShareButton: some View {
+        UCPrimaryCTA("위시리스트 공유하기", systemImage: "square.and.arrow.up") {
+            showingShareWishlistSheet = true
+        }
+        .padding(.horizontal, 16)
+        .padding(.top, 6)
+        .padding(.bottom, 10)
+        .background(UCColor.bg)
+    }
+
     @ViewBuilder
     private var checkoutEntry: some View {
-        if !cartItems.isEmpty {
+        if selectedSegment != .wishlist, !cartItems.isEmpty {
             NavigationLink {
                 CheckoutView(cartItems: cartItems)
             } label: {

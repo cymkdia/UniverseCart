@@ -55,6 +55,12 @@ struct ProfileView: View {
                             .foregroundStyle(UCColor.textSecond)
                             .fixedSize(horizontal: false, vertical: true)
                     }
+
+                    if let version = appVersionLabel {
+                        Text(version)
+                            .font(.caption2)
+                            .foregroundStyle(UCColor.textSecond)
+                    }
                 }
                 .padding(20)
             }
@@ -102,7 +108,7 @@ struct ProfileView: View {
             Button("로그아웃") {
                 Task { await auth.signOut() }
             }
-            .buttonStyle(.bordered)
+            .buttonStyle(UCBorderedButtonStyle())
             .disabled(auth.isBusy)
         }
         .padding(16)
@@ -140,18 +146,19 @@ struct ProfileView: View {
                             .foregroundStyle(UCColor.textPrimary)
                             .textSelection(.enabled)
 
-                        HStack(spacing: 10) {
+                        HStack(spacing: UCButtonMetrics.inlineSpacing) {
                             Button(didCopyLink ? "복사됨" : "링크 복사") {
                                 UIPasteboard.general.string = url
                                 didCopyLink = true
                             }
-                            .buttonStyle(.bordered)
+                            .buttonStyle(UCBorderedButtonStyle())
 
                             ShareLink(item: url) {
                                 Text("공유하기")
                             }
-                            .buttonStyle(.bordered)
+                            .buttonStyle(UCPrimaryButtonStyle())
                         }
+                        .padding(.top, 16)
                     } else {
                         Text("SupabaseSecrets.plist에 SHARE_WEB_BASE_URL을 넣어 주세요.")
                             .font(.caption)
@@ -170,6 +177,13 @@ struct ProfileView: View {
         )
     }
 
+    private var appVersionLabel: String? {
+        let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String
+        let build = Bundle.main.infoDictionary?["CFBundleVersion"] as? String
+        guard let version, let build else { return nil }
+        return "Universe Cart v\(version) (\(build))"
+    }
+
     private var shareEnabledBinding: Binding<Bool> {
         Binding(
             get: { shareProfile?.shareEnabled == true },
@@ -184,21 +198,19 @@ struct ProfileView: View {
             Text("간편 로그인")
                 .font(.headline)
 
-            Button {
-                Task { await auth.signInWithKakao() }
-            } label: {
-                Text("카카오로 계속하기")
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(Color(red: 0.12, green: 0.12, blue: 0.12))
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 11)
-                    .background(Color(red: 0.99, green: 0.9, blue: 0.0))
-                    .clipShape(RoundedRectangle(cornerRadius: 8))
-            }
-            .buttonStyle(.plain)
-            .disabled(auth.isBusy)
+            Text("카카오 로그인 (준비 중)")
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(UCColor.textSecond)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 11)
+                .background(UCColor.surface)
+                .clipShape(RoundedRectangle(cornerRadius: 8))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 8)
+                        .stroke(UCColor.border, lineWidth: 1)
+                )
 
-            Text("Supabase에서 카카오 제공자를 켜야 동작해요. (docs/M9-social-login-setup.md)")
+            Text("카카오 비즈니스 등록 후 다시 연결할 예정이에요. 지금은 아래 이메일로 로그인해 주세요.")
                 .font(.caption)
                 .foregroundStyle(UCColor.textSecond)
                 .fixedSize(horizontal: false, vertical: true)
@@ -231,17 +243,16 @@ struct ProfileView: View {
                 .background(UCColor.surface)
                 .clipShape(RoundedRectangle(cornerRadius: 8))
 
-            HStack(spacing: 12) {
+            HStack(spacing: UCButtonMetrics.inlineSpacing) {
                 Button("로그인") {
                     Task { await auth.signIn(email: email, password: password) }
                 }
-                .buttonStyle(.borderedProminent)
-                .tint(UCColor.accent)
+                .buttonStyle(UCPrimaryButtonStyle())
 
                 Button("회원가입") {
                     Task { await auth.signUp(email: email, password: password) }
                 }
-                .buttonStyle(.bordered)
+                .buttonStyle(UCBorderedButtonStyle())
             }
             .disabled(auth.isBusy || email.isEmpty || password.count < 6)
         }

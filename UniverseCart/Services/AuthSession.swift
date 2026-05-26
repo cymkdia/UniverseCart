@@ -66,11 +66,11 @@ final class AuthSession {
         }
 
         do {
-            // account_email·openid 는 개인 앱에서 KOE205 원인이 될 수 있어 닉네임·프로필만 요청
+            // scopes 는 넣지 않음 — Supabase가 account_email·profile_* 를 서버에서 붙이고,
+            // 앱에서 공백 scopes 를 넣으면 KOE205(invalid_scope) 가 날 수 있음
             _ = try await client.auth.signInWithOAuth(
                 provider: .kakao,
-                redirectTo: AuthRedirect.callbackURL,
-                scopes: "profile_nickname profile_image"
+                redirectTo: AuthRedirect.callbackURL
             ) { session in
                 session.prefersEphemeralWebBrowserSession = false
             }
@@ -200,7 +200,12 @@ final class AuthSession {
             return "로그인을 취소했어요."
         }
         if text.contains("KOE205") || text.localizedCaseInsensitiveContains("invalid_scope") {
-            return "카카오 동의항목이 맞지 않아요. 동의항목에서 닉네임·프로필 사진을 켜고, Supabase Kakao에서 ‘이메일 없이 허용’을 ON 해 주세요."
+            return """
+            카카오 동의항목(KOE205)을 맞춰 주세요.
+            ① 카카오 개발자 → 앱 설정 → 비즈니스 → 「개인으로 등록」
+            ② 제품 설정 → 카카오 로그인 → 동의항목: 닉네임·프로필 사진·이메일 모두 ON + 동의 목적 입력
+            ③ Supabase → Kakao → Allow users without an email ON
+            """
         }
         if text.contains("KOE006") || text.localizedCaseInsensitiveContains("redirect_uri") {
             return "카카오 Redirect URI가 맞지 않아요. Supabase callback 주소가 카카오에 등록됐는지 확인해 주세요."
