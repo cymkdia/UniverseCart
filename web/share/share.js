@@ -23,6 +23,7 @@ let supabase = null;
 let ownerProfile = null;
 let wishItems = [];
 let pledgesByItem = {};
+let coordinationsByItem = {};
 let activeItem = null;
 let selectedAmount = null;
 let authMode = "signin";
@@ -62,6 +63,24 @@ function openPledgeFromQuery() {
 
 function pledgesForItem(itemId) {
   return pledgesByItem[itemId] || [];
+}
+
+function coordinationForItem(itemId) {
+  return coordinationsByItem[itemId] || null;
+}
+
+function effectiveCoordState(item, stats) {
+  const coord = coordinationForItem(item.id);
+  if (coord?.state === "received") return "received";
+  if (coord?.state === "purchased") return "purchased";
+  if (coord?.state === "buyer_assigned") return "buyer_assigned";
+  if (coord?.state === "goal_reached") return "goal_reached";
+  if (item.price && stats.total >= item.price) return "goal_reached";
+  return stats.pledges.length ? "collecting" : "collecting";
+}
+
+function isGoalMet(item, stats) {
+  return item.price && item.price > 0 && stats.total >= item.price;
 }
 
 function fundingStats(item) {
@@ -114,6 +133,8 @@ function renderItems(ownerName, items) {
         ? `<img src="${item.image_url}" alt="" />`
         : "";
       const stats = fundingStats(item);
+      const coordState = effectiveCoordState(item, stats);
+      const goalMet = isGoalMet(item, stats);
       const names = stats.pledges
         .slice(0, 3)
         .map((p) => contributorLabel(p))
@@ -132,12 +153,13 @@ function renderItems(ownerName, items) {
               stats.pct != null
                 ? `<div class="fund-top">
                     <span class="fund-label">약속 펀딩</span>
-                    <span class="fund-pct">${stats.pct}%</span>
+                    <span class="fund-pct">${goalMet ? "100%" : stats.pct + "%"}</span>
+                    ${goalMet ? '<span class="fund-label" style="color:#3a8c5c;margin-left:6px">목표 달성</span>' : ""}
                   </div>
-                  <div class="fund-bar"><div class="fund-fill" style="width:${barWidth}%"></div></div>
+                  <div class="fund-bar"><div class="fund-fill" style="width:${goalMet ? 100 : barWidth}%"></div></div>
                   <div class="fund-meta">
                     <span class="fund-collected">${formatPrice(stats.total)} 모였어요</span>
-                    <span class="fund-remaining">${formatPrice(stats.remaining)} 남았어요</span>
+                    <span class="fund-remaining">${goalMet ? "목표 달성" : formatPrice(stats.remaining) + " 남았어요"}</span>
                   </div>`
                 : `<div class="fund-meta">
                     <span class="fund-collected">${formatPrice(stats.total)} 약속</span>
@@ -146,7 +168,7 @@ function renderItems(ownerName, items) {
             <div class="fund-participants">${participantLine}</div>
             <div class="btn-row">
               <button type="button" class="btn btn-primary" data-pledge="${item.id}">
-                같이 선물하기
+                ${goalMet ? "참여 현황 보기" : "같이 선물하기"}
               </button>
               ${
                 item.product_url
@@ -462,6 +484,7 @@ function renderPledgeForm(container, user, errorText, successText) {
       if (error) throw error;
 
       await reloadPledges();
+      await reloadCoordinations();
       renderItems(ownerProfile.display_name, wishItems);
       renderPledgeForm(
         container,
@@ -469,10 +492,224 @@ function renderPledgeForm(container, user, errorText, successText) {
         "",
         `${formatPrice(Math.round(amount))} 약속을 남겼어요!`
       );
+      renderCoordinationSection(container, user);
     } catch (error) {
       renderPledgeForm(container, user, error.message || String(error), "");
     }
   });
+}
+
+const WEB_BANK_OPTIONS = [
+  { name: "KB국민", code: "004", toss: "KB국민" },
+  { name: "신한", code: "088", toss: "신한" },
+  { name: "우리", code: "020", toss: "우리" },
+  { name: "NH농협", code: "011", toss: "NH농협" },
+  { name: "카카오뱅크", code: "090", toss: "카카오" },
+  { name: "토스뱅크", code: "092", toss: "토스" },
+];
+
+function kakaoPayLink(bankCode, accountNumber, amount) {
+  const acct = String(accountNumber).replace(/\D/g, "");
+  return `kakaopay://money/to/bank?bank_code=${encodeURIComponent(bankCode)}&bank_account_number=${encodeURIComponent(acct)}&amount=${encodeURIComponent(String(amount))}`;
+}
+
+function tossPayLink(bankName, accountNumber, amount) {
+  const acct = String(accountNumber).replace(/\D/g, "");
+  return `supertoss://send?bank=${encodeURIComponent(bankName)}&accountNo=${encodeURIComponent(acct)}&amount=${encodeURIComponent(String(amount))}`;
+}
+
+async function insertCoordinationNotifications(itemId, kind, title, ownerBody, participantBody) {
+  const stats = fundingStats(activeItem);
+  const payloads = [
+    {
+      user_id: ownerProfile.user_id,
+      item_id: itemId,
+      kind,
+      title,
+      body: ownerBody,
+    },
+  ];
+  stats.pledges.forEach((p) => {
+    if (p.contributor_user_id !== ownerProfile.user_id) {
+      payloads.push({
+        user_id: p.contributor_user_id,
+        item_id: itemId,
+        kind,
+        title,
+        body: participantBody,
+      });
+    }
+  });
+  const { error } = await supabase.from("funding_notifications").insert(payloads);
+  if (error) console.warn("notification insert failed:", error);
+}
+
+function renderCoordinationSection(container, user) {
+  const item = activeItem;
+  if (!item) return;
+
+  const existing = document.getElementById("coordSection");
+  if (existing) existing.remove();
+
+  const stats = fundingStats(item);
+  const state = effectiveCoordState(item, stats);
+  const coord = coordinationForItem(item.id);
+  const isParticipant = stats.pledges.some((p) => p.contributor_user_id === user.id);
+  const isOwner = user.id === ownerProfile.user_id;
+  const isBuyer = coord?.buyer_user_id === user.id;
+
+  if (state === "collecting" && !isGoalMet(item, stats)) return;
+
+  const section = document.createElement("div");
+  section.id = "coordSection";
+  section.style.marginTop = "16px";
+  section.style.paddingTop = "16px";
+  section.style.borderTop = "1px solid #e4e4e4";
+
+  let html = `<div class="form-success" style="margin-bottom:10px">약속 목표를 달성했어요!</div>`;
+  html += `<p class="sheet-sub" style="margin-top:0">UC는 결제·송금을 처리하지 않아요. 카카오페이·토스에서 직접 송금해 주세요.</p>`;
+
+  if (state === "goal_reached" && isParticipant && !isOwner) {
+    html += `
+      <p class="sheet-sub">대표 구매자로 손들기</p>
+      <div class="field">
+        <label for="volBank">은행</label>
+        <select id="volBank">${WEB_BANK_OPTIONS.map((b) => `<option value="${b.code}" data-toss="${b.toss}">${b.name}</option>`).join("")}</select>
+      </div>
+      <div class="field">
+        <label for="volAccount">송금받을 계좌번호</label>
+        <input id="volAccount" inputmode="numeric" placeholder="하이픈 없이" />
+      </div>
+      <button type="button" class="btn btn-primary" id="volunteerBtn" style="width:100%;margin-bottom:8px">내가 대표로 살게요</button>
+    `;
+  }
+
+  if ((state === "buyer_assigned" || state === "purchased") && coord?.settlement_account_number) {
+    html += `<p class="sheet-sub"><strong>대표 계좌</strong> ${escapeHtml(coord.settlement_bank_name || "")} ${escapeHtml(coord.settlement_account_number)}</p>`;
+    stats.pledges
+      .filter((p) => p.contributor_user_id !== ownerProfile.user_id)
+      .forEach((p) => {
+        const isMe = p.contributor_user_id === user.id;
+        html += `
+          <div style="margin-bottom:10px;padding:10px;background:#f7f6f3;border-radius:8px">
+            <div style="font-size:13px;font-weight:600;margin-bottom:6px">${escapeHtml(p.contributor_name || "친구")}${isMe ? " (나)" : ""} · ${formatPrice(p.amount)}</div>
+            <div class="btn-row">
+              <a class="btn btn-secondary" href="${kakaoPayLink(coord.settlement_bank_code, coord.settlement_account_number, p.amount)}">카카오페이</a>
+              <a class="btn btn-secondary" href="${tossPayLink(coord.settlement_bank_name, coord.settlement_account_number, p.amount)}">토스</a>
+            </div>
+          </div>
+        `;
+      });
+
+    const shareLines = [
+      "[Universe Cart] 정산 안내",
+      `${item.title}`,
+      `계좌: ${coord.settlement_bank_name} ${coord.settlement_account_number}`,
+    ];
+    stats.pledges.forEach((p) => {
+      if (p.contributor_user_id !== ownerProfile.user_id) {
+        shareLines.push(`- ${p.contributor_name}: ${formatPrice(p.amount)}`);
+      }
+    });
+    html += `<button type="button" class="btn btn-primary" id="shareSettlement" style="width:100%;margin-bottom:8px">카카오톡으로 정산 안내 공유</button>`;
+    section.dataset.shareText = shareLines.join("\n");
+  }
+
+  if (state === "buyer_assigned" && isBuyer) {
+    html += `<button type="button" class="btn btn-primary" id="markPurchased" style="width:100%;margin-bottom:8px">구매 완료</button>`;
+  }
+
+  if (state === "purchased" && isOwner) {
+    html += `<p class="sheet-sub">선물을 받으셨나요? 앱에서 「선물 받음」을 눌러 주세요.</p>`;
+  }
+
+  section.innerHTML = html;
+  container.appendChild(section);
+
+  const volunteerBtn = section.querySelector("#volunteerBtn");
+  if (volunteerBtn) {
+    volunteerBtn.addEventListener("click", async () => {
+      const bankSelect = section.querySelector("#volBank");
+      const account = section.querySelector("#volAccount").value.replace(/\D/g, "");
+      const bankCode = bankSelect.value;
+      const bankName = bankSelect.selectedOptions[0]?.dataset?.toss || bankSelect.selectedOptions[0]?.textContent;
+      if (account.length < 10) {
+        alert("계좌번호를 10자리 이상 입력해 주세요.");
+        return;
+      }
+      try {
+        const { error } = await supabase.from("funding_coordinations").upsert(
+          {
+            item_id: item.id,
+            owner_user_id: ownerProfile.user_id,
+            buyer_user_id: user.id,
+            state: "buyer_assigned",
+            settlement_bank_name: bankName,
+            settlement_bank_code: bankCode,
+            settlement_account_number: account,
+            updated_at: new Date().toISOString(),
+          },
+          { onConflict: "item_id" }
+        );
+        if (error) throw error;
+        await insertCoordinationNotifications(
+          item.id,
+          "buyer_assigned",
+          "대표 구매자가 정해졌어요",
+          "참여자들이 송금할 수 있도록 정산 안내를 확인해 주세요.",
+          "대표 구매자에게 약속 금액을 송금해 주세요."
+        );
+        await reloadCoordinations();
+        renderCoordinationSection(container, user);
+      } catch (err) {
+        alert(err.message || String(err));
+      }
+    });
+  }
+
+  const purchasedBtn = section.querySelector("#markPurchased");
+  if (purchasedBtn) {
+    purchasedBtn.addEventListener("click", async () => {
+      try {
+        const { error } = await supabase
+          .from("funding_coordinations")
+          .update({
+            state: "purchased",
+            purchased_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          })
+          .eq("item_id", item.id)
+          .eq("buyer_user_id", user.id);
+        if (error) throw error;
+        await insertCoordinationNotifications(
+          item.id,
+          "purchased",
+          "구매가 완료됐어요",
+          "선물이 도착하면 「선물 받음」을 눌러 주세요.",
+          "대표 구매자가 구매를 완료했어요."
+        );
+        await reloadCoordinations();
+        renderCoordinationSection(container, user);
+      } catch (err) {
+        alert(err.message || String(err));
+      }
+    });
+  }
+
+  const shareBtn = section.querySelector("#shareSettlement");
+  if (shareBtn && section.dataset.shareText) {
+    shareBtn.addEventListener("click", async () => {
+      const text = section.dataset.shareText;
+      if (navigator.share) {
+        try {
+          await navigator.share({ text });
+          return;
+        } catch (_) {}
+      }
+      await navigator.clipboard.writeText(text);
+      alert("정산 안내를 복사했어요. 카카오톡에 붙여넣기해 주세요.");
+    });
+  }
 }
 
 async function openPledgeSheet(item) {
@@ -493,6 +730,7 @@ async function openPledgeSheet(item) {
   }
 
   renderPledgeForm(sheetBody, user, "", "");
+  renderCoordinationSection(sheetBody, user);
 }
 
 async function reloadPledges() {
@@ -518,6 +756,29 @@ async function reloadPledges() {
       pledgesByItem[pledge.item_id] = [];
     }
     pledgesByItem[pledge.item_id].push(pledge);
+  });
+  return true;
+}
+
+async function reloadCoordinations() {
+  coordinationsByItem = {};
+  if (!wishItems.length) return true;
+
+  const ids = wishItems.map((i) => i.id);
+  const { data, error } = await supabase
+    .from("funding_coordinations")
+    .select(
+      "item_id, owner_user_id, state, buyer_user_id, goal_reached_at, purchased_at, received_at, thank_you_message, settlement_bank_name, settlement_bank_code, settlement_account_number, updated_at"
+    )
+    .in("item_id", ids);
+
+  if (error) {
+    console.warn("funding_coordinations load failed:", error);
+    return false;
+  }
+
+  (data || []).forEach((coord) => {
+    coordinationsByItem[coord.item_id] = coord;
   });
   return true;
 }
@@ -598,6 +859,7 @@ async function main() {
 
     wishItems = items || [];
     const pledgesOK = await reloadPledges();
+    const coordsOK = await reloadCoordinations();
     renderItems(profile.display_name, wishItems);
     openPledgeFromQuery();
 

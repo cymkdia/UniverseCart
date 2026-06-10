@@ -4,6 +4,7 @@ enum HomeSegment: String, CaseIterable {
     case all = "전체"
     case wishlist = "위시리스트"
     case cart = "내 장바구니"
+    case receivedGifts = "받은 선물"
 }
 
 enum CategoryChip: String, CaseIterable {
@@ -72,6 +73,7 @@ struct MainListView: View {
                 case .all: return true
                 case .wishlist: return item.listType == .wishlist
                 case .cart: return item.listType == .cart
+                case .receivedGifts: return item.listType == .receivedGift
                 }
             }()
 
@@ -116,6 +118,11 @@ struct MainListView: View {
             return (
                 "장바구니가 비어 있어요",
                 "구매할 상품을 장바구니에 담아보세요"
+            )
+        case .receivedGifts:
+            return (
+                "받은 선물이 없어요",
+                "펀딩이 완료된 선물이 여기에 모여요"
             )
         case .all:
             if selectedChip != .all {
@@ -162,10 +169,14 @@ struct MainListView: View {
                 if let item = items.first(where: { $0.id == itemID }) {
                     ItemDetailView(
                         item: item,
+                        ownerUserId: auth.currentUserId(),
                         onToggleListType: { toggleListType(for: itemID) },
                         onTapPrice: {
                             selectedItemID = nil
                             openPriceEditor(for: itemID)
+                        },
+                        onItemUpdated: { updated in
+                            applyItemUpdate(updated)
                         }
                     )
                 }
@@ -345,6 +356,13 @@ struct MainListView: View {
         var item = incoming
         item.imageURL = ImageURLNormalizer.resolve(incoming.imageURL)
         return ItemUpsert.apply(item, to: &items, moveUpdatedToTop: true)
+    }
+
+    private func applyItemUpdate(_ updated: Item) {
+        guard let index = items.firstIndex(where: { $0.id == updated.id }) else { return }
+        items[index] = updated
+        ItemStore.save(items)
+        pushToCloudIfNeeded(items)
     }
 
     private func markJustAdded(_ ids: [UUID]) {
@@ -1095,7 +1113,7 @@ private struct AddFromURLSheet: View {
                         }
 
                         Picker("담을 곳", selection: $selectedListType) {
-                            ForEach(ListType.allCases, id: \.self) { listType in
+                            ForEach(ListType.selectableCases, id: \.self) { listType in
                                 Text(listType.displayName).tag(listType)
                             }
                         }
@@ -1247,7 +1265,7 @@ private struct AddItemSheet: View {
                     }
 
                     Picker("담을 곳", selection: $selectedListType) {
-                        ForEach(ListType.allCases, id: \.self) { listType in
+                        ForEach(ListType.selectableCases, id: \.self) { listType in
                             Text(listType.displayName).tag(listType)
                         }
                     }

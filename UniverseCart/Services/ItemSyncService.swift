@@ -29,4 +29,18 @@ enum ItemSyncService {
             .insert(records)
             .execute()
     }
+
+    static func updateItem(
+        client: SupabaseClient,
+        userId: UUID,
+        item: Item
+    ) async throws {
+        let record = ItemRecord.from(item: item, userId: userId)
+        try await client
+            .from("items")
+            .update(record)
+            .eq("id", value: item.id.uuidString)
+            .eq("user_id", value: userId.uuidString)
+            .execute()
+    }
 }

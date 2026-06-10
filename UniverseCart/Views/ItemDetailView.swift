@@ -3,18 +3,39 @@ import SwiftUI
 struct ItemDetailView: View {
     @Environment(\.openURL) private var openURL
     @Environment(AuthSession.self) private var auth
+    @Environment(FundingNotificationCenter.self) private var notificationCenter
 
     let item: Item
+    let ownerUserId: UUID?
     let onToggleListType: () -> Void
     let onTapPrice: () -> Void
+    var onItemUpdated: ((Item) -> Void)?
 
     @State private var pledgeSummary = FundingPledgeSummary(pledges: [])
-    @State private var isLoadingPledges = false
+    @State private var coordination: FundingCoordinationRecord?
+    @State private var isLoadingFunding = false
     @State private var shareProfile: ProfileRecord?
+    @State private var showingVolunteerSheet = false
+    @State private var showingSettlement = false
+    @State private var showingReceivedSheet = false
+    @State private var actionErrorMessage: String?
 
     private var canOpenStore: Bool {
         guard let url = URL(string: item.productURL) else { return false }
         return url.scheme == "https" || url.scheme == "http"
+    }
+
+    private var coordinationContext: FundingCoordinationContext {
+        FundingCoordinationContext(
+            record: coordination,
+            summary: pledgeSummary,
+            itemPrice: item.price
+        )
+    }
+
+    private var isOwner: Bool {
+        guard let current = auth.currentUserId(), let ownerUserId else { return false }
+        return current == ownerUserId
     }
 
     var body: some View {
@@ -27,21 +48,33 @@ struct ItemDetailView: View {
                     titleSection
                     priceSection
 
-                    if item.listType == .wishlist {
+                    if item.listType == .wishlist || item.listType == .receivedGift {
                         FundingPledgeSection(
                             item: item,
-                            summary: pledgeSummary,
-                            isLoading: isLoadingPledges,
+                            context: coordinationContext,
+                            isLoading: isLoadingFunding,
                             pledgeWebURL: pledgeWebURL,
-                            isShareEnabled: shareProfile?.shareEnabled == true
+                            isShareEnabled: shareProfile?.shareEnabled == true,
+                            currentUserId: auth.currentUserId(),
+                            ownerUserId: ownerUserId,
+                            onVolunteerAsBuyer: { showingVolunteerSheet = true },
+                            onOpenSettlement: { showingSettlement = true },
+                            onMarkPurchased: { Task { await markPurchased() } },
+                            onMarkReceived: { showingReceivedSheet = true }
                         )
+                    }
+
+                    if let actionErrorMessage {
+                        Text(actionErrorMessage)
+                            .font(.footnote)
+                            .foregroundStyle(.red)
                     }
 
                     if canOpenStore {
                         UCPrimaryCTA("\(item.mall.displayName)에서 보기", systemImage: "arrow.up.right.square") {
                             openProductURL()
                         }
-                    } else {
+                    } else if item.listType != .receivedGift {
                         Text("직접 입력한 항목이거나 링크가 없어요.")
                             .font(.footnote)
                             .foregroundStyle(UCColor.textSecond)
@@ -58,19 +91,42 @@ struct ItemDetailView: View {
         .background(UCColor.bg)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
-            ToolbarItem(placement: .topBarTrailing) {
-                Button(action: onToggleListType) {
-                    Image(systemName: item.listType == .wishlist ? "heart.fill" : "heart")
-                        .foregroundStyle(item.listType == .wishlist ? UCColor.accent : UCColor.textSecond)
+            if item.listType != .receivedGift, isOwner {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button(action: onToggleListType) {
+                        Image(systemName: item.listType == .wishlist ? "heart.fill" : "heart")
+                            .foregroundStyle(item.listType == .wishlist ? UCColor.accent : UCColor.textSecond)
+                    }
+                    .accessibilityLabel(
+                        item.listType == .wishlist ? "장바구니로 옮기기" : "위시리스트에 담기"
+                    )
                 }
-                .accessibilityLabel(
-                    item.listType == .wishlist ? "장바구니로 옮기기" : "위시리스트에 담기"
-                )
             }
         }
         .task(id: item.id) {
             await loadShareProfileIfNeeded()
-            await loadPledgesIfNeeded()
+            await reloadFundingData()
+        }
+        .sheet(isPresented: $showingVolunteerSheet) {
+            VolunteerBuyerSheet(itemTitle: item.title) { bank, account in
+                try await volunteerAsBuyer(bank: bank, accountNumber: account)
+            }
+        }
+        .sheet(isPresented: $showingSettlement) {
+            if let record = coordination {
+                SettlementGuideView(
+                    itemTitle: item.title,
+                    coordination: record,
+                    pledges: pledgeSummary.pledges,
+                    buyerDisplayName: buyerDisplayName(for: record),
+                    currentUserId: auth.currentUserId()
+                )
+            }
+        }
+        .sheet(isPresented: $showingReceivedSheet) {
+            MarkGiftReceivedSheet(itemTitle: item.title) { message in
+                try await markReceived(thankYouMessage: message)
+            }
         }
     }
 
@@ -166,15 +222,15 @@ struct ItemDetailView: View {
     }
 
     @MainActor
-    private func loadPledgesIfNeeded() async {
-        guard item.listType == .wishlist,
+    private func reloadFundingData() async {
+        guard item.listType == .wishlist || item.listType == .receivedGift,
               let client = SupabaseService.shared.client
         else {
             return
         }
 
-        isLoadingPledges = true
-        defer { isLoadingPledges = false }
+        isLoadingFunding = true
+        defer { isLoadingFunding = false }
 
         do {
             let pledges = try await FundingPledgeService.fetchPledges(
@@ -182,9 +238,137 @@ struct ItemDetailView: View {
                 itemId: item.id
             )
             pledgeSummary = FundingPledgeSummary(pledges: pledges)
+            coordination = try await FundingCoordinationService.fetchCoordination(
+                client: client,
+                itemId: item.id
+            )
         } catch {
             pledgeSummary = FundingPledgeSummary(pledges: [])
         }
+    }
+
+    @MainActor
+    private func volunteerAsBuyer(bank: SettlementBankOption, accountNumber: String) async throws {
+        guard let client = SupabaseService.shared.client,
+              let userId = auth.currentUserId(),
+              let ownerId = ownerUserId
+        else {
+            throw FundingCoordinationError.notAuthorized
+        }
+
+        let previous = coordination
+        coordination = FundingCoordinationRecord(
+            itemId: item.id,
+            ownerUserId: ownerId,
+            state: .buyerAssigned,
+            buyerUserId: userId,
+            goalReachedAt: coordination?.goalReachedAt,
+            purchasedAt: nil,
+            receivedAt: nil,
+            thankYouMessage: nil,
+            settlementBankName: bank.tossBankName,
+            settlementBankCode: bank.kakaoBankCode,
+            settlementAccountNumber: accountNumber.filter(\.isNumber),
+            updatedAt: Date()
+        )
+
+        do {
+            coordination = try await FundingCoordinationService.volunteerAsBuyer(
+                client: client,
+                itemId: item.id,
+                ownerUserId: ownerId,
+                buyerUserId: userId,
+                bank: bank,
+                accountNumber: accountNumber
+            )
+            await notificationCenter.refresh(auth: auth)
+        } catch {
+            coordination = previous
+            throw error
+        }
+    }
+
+    @MainActor
+    private func markPurchased() async {
+        guard let client = SupabaseService.shared.client,
+              let userId = auth.currentUserId(),
+              let ownerId = ownerUserId
+        else {
+            actionErrorMessage = FundingCoordinationError.notAuthorized.errorDescription
+            return
+        }
+
+        let previous = coordination
+        if var optimistic = coordination {
+            optimistic.state = .purchased
+            optimistic.purchasedAt = Date()
+            coordination = optimistic
+        }
+
+        do {
+            coordination = try await FundingCoordinationService.markPurchased(
+                client: client,
+                itemId: item.id,
+                ownerUserId: ownerId,
+                buyerUserId: userId
+            )
+            actionErrorMessage = nil
+            await notificationCenter.refresh(auth: auth)
+        } catch {
+            coordination = previous
+            actionErrorMessage = error.localizedDescription
+        }
+    }
+
+    @MainActor
+    private func markReceived(thankYouMessage: String?) async throws {
+        guard let client = SupabaseService.shared.client,
+              let userId = ownerUserId
+        else {
+            throw FundingCoordinationError.notAuthorized
+        }
+
+        let previousCoordination = coordination
+        let previousItem = item
+
+        if var optimistic = coordination {
+            optimistic.state = .received
+            optimistic.receivedAt = Date()
+            optimistic.thankYouMessage = thankYouMessage
+            coordination = optimistic
+        }
+
+        var archivedItem = item
+        archivedItem.listType = .receivedGift
+
+        do {
+            coordination = try await FundingCoordinationService.markReceived(
+                client: client,
+                itemId: item.id,
+                ownerUserId: userId,
+                thankYouMessage: thankYouMessage
+            )
+            try await ItemSyncService.updateItem(
+                client: client,
+                userId: userId,
+                item: archivedItem
+            )
+            onItemUpdated?(archivedItem)
+            actionErrorMessage = nil
+            await notificationCenter.refresh(auth: auth)
+        } catch {
+            coordination = previousCoordination
+            onItemUpdated?(previousItem)
+            throw error
+        }
+    }
+
+    private func buyerDisplayName(for record: FundingCoordinationRecord) -> String {
+        guard let buyerId = record.buyerUserId else { return "대표" }
+        if let pledge = pledgeSummary.pledges.first(where: { $0.contributorUserId == buyerId }) {
+            return pledge.displayContributorName
+        }
+        return "대표"
     }
 
     private func openProductURL() {
@@ -197,9 +381,6 @@ struct ItemDetailView: View {
     }
 
     private func formatPrice(_ value: Int) -> String {
-        let formatter = NumberFormatter()
-        formatter.numberStyle = .decimal
-        let number = formatter.string(from: NSNumber(value: value)) ?? "\(value)"
-        return "₩\(number)"
+        RemittanceDeepLinkBuilder.formatPrice(value)
     }
 }

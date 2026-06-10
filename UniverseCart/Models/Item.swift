@@ -70,13 +70,19 @@ enum Category: String, Codable, CaseIterable {
 }
 
 enum ListType: String, CaseIterable, Codable {
-    case wishlist, cart
+    case wishlist, cart, receivedGift = "received_gift"
 
     var displayName: String {
         switch self {
         case .wishlist: return "위시리스트"
         case .cart: return "내 장바구니"
+        case .receivedGift: return "받은 선물"
         }
+    }
+
+    /// 사용자가 직접 고르는 담기 대상 (아카이브 제외)
+    static var selectableCases: [ListType] {
+        [.wishlist, .cart]
     }
 }
 

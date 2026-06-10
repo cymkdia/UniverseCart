@@ -15,5 +15,10 @@
 			</array>
 		</dict>
 	</array>
+	<key>LSApplicationQueriesSchemes</key>
+	<array>
+		<string>kakaopay</string>
+		<string>supertoss</string>
+	</array>
 </dict>
 </plist>

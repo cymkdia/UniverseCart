@@ -1,19 +1,16 @@
-//
-//  UniverseCartApp.swift
-//  UniverseCart
-//
-
 import SwiftUI
 
 @main
 struct UniverseCartApp: App {
     @State private var auth = AuthSession()
+    @State private var notificationCenter = FundingNotificationCenter()
     @State private var showOnboarding = false
 
     var body: some Scene {
         WindowGroup {
             ContentView()
                 .environment(auth)
+                .environment(notificationCenter)
                 .onOpenURL { url in
                     Task { await auth.handleOpenURL(url) }
                 }

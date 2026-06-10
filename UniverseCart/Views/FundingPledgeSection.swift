@@ -1,35 +1,56 @@
 import SwiftUI
 
-/// 위시 상품 상세 — 약속 펀딩 현황 (읽기 전용, 참여는 웹)
+/// 위시 상품 상세 — 약속 펀딩 + 코디네이션 (상태별 UI)
 struct FundingPledgeSection: View {
     @Environment(\.openURL) private var openURL
 
     let item: Item
-    let summary: FundingPledgeSummary
+    let context: FundingCoordinationContext
     var isLoading: Bool = false
     var pledgeWebURL: URL?
     var isShareEnabled: Bool = false
+    var currentUserId: UUID?
+    var ownerUserId: UUID?
 
-    private var progress: Double? {
-        summary.progress(for: item.price)
+    var onVolunteerAsBuyer: () -> Void = {}
+    var onOpenSettlement: () -> Void = {}
+    var onMarkPurchased: () -> Void = {}
+    var onMarkReceived: () -> Void = {}
+
+    private var effectiveState: FundingCoordinationState {
+        context.effectiveState
+    }
+
+    private var isOwner: Bool {
+        guard let currentUserId, let ownerUserId else { return false }
+        return currentUserId == ownerUserId
+    }
+
+    private var isBuyer: Bool {
+        guard let currentUserId,
+              let buyerId = context.record?.buyerUserId
+        else { return false }
+        return currentUserId == buyerId
+    }
+
+    private var isParticipant: Bool {
+        guard let currentUserId else { return false }
+        return context.summary.pledges.contains { $0.contributorUserId == currentUserId }
     }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
             header
+            stateBadge
 
             if isLoading {
                 ProgressView()
                     .frame(maxWidth: .infinity, alignment: .center)
-            } else if summary.pledges.isEmpty {
-                emptyState
             } else {
-                progressBlock
-                participantList
+                stateContent
             }
 
-            pledgeWebAction
-
+            actionButtons
             disclaimer
         }
         .padding(14)
@@ -54,53 +75,170 @@ struct FundingPledgeSection: View {
         }
     }
 
-    private var emptyState: some View {
-        Text("아직 약속이 없어요. 위시리스트 링크를 공유해 보세요.")
+    private var stateBadge: some View {
+        HStack {
+            Text(effectiveState.displayTitle)
+                .font(.caption.weight(.bold))
+                .foregroundStyle(badgeForeground)
+                .padding(.horizontal, 8)
+                .padding(.vertical, 4)
+                .background(badgeBackground)
+                .clipShape(Capsule())
+
+            Spacer()
+
+            if let progress = context.progress, context.isGoalMet {
+                Text("100%")
+                    .font(.title3.bold())
+                    .foregroundStyle(UCColor.fundingText)
+            } else if let progress = context.progress {
+                Text("\(Int(progress * 100))%")
+                    .font(.title3.bold())
+            }
+        }
+    }
+
+    private var badgeForeground: Color {
+        context.isGoalMet ? UCColor.fundingText : UCColor.textSecond
+    }
+
+    private var badgeBackground: Color {
+        context.isGoalMet ? UCColor.funding.opacity(0.15) : UCColor.border.opacity(0.35)
+    }
+
+    @ViewBuilder
+    private var stateContent: some View {
+        Text(effectiveState.statusMessage)
             .font(.footnote)
             .foregroundStyle(UCColor.textSecond)
+
+        switch effectiveState {
+        case .collecting:
+            if context.summary.pledges.isEmpty {
+                Text("아직 약속이 없어요. 위시리스트 링크를 공유해 보세요.")
+                    .font(.footnote)
+                    .foregroundStyle(UCColor.textSecond)
+            } else {
+                progressBlock
+                participantList
+            }
+
+        case .goalReached:
+            progressBlock
+            participantList
+            if isParticipant, !isOwner {
+                Text("참여자라면 「내가 대표로 살게요」를 눌러 구매를 맡아 주세요.")
+                    .font(.caption)
+                    .foregroundStyle(UCColor.fundingText)
+            } else if isOwner {
+                Text("참여자 중 대표 구매자를 기다리는 중이에요.")
+                    .font(.caption)
+                    .foregroundStyle(UCColor.textSecond)
+            }
+
+        case .buyerAssigned, .purchased:
+            progressBlock
+            participantList
+
+        case .received:
+            progressBlock
+            if let message = context.record?.thankYouMessage, !message.isEmpty {
+                Text("감사 메시지: \(message)")
+                    .font(.caption)
+                    .foregroundStyle(UCColor.textSecond)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var actionButtons: some View {
+        switch effectiveState {
+        case .collecting:
+            pledgeWebButton
+
+        case .goalReached:
+            if isParticipant, !isOwner {
+                UCPrimaryCTA("내가 대표로 살게요", systemImage: "hand.raised") {
+                    onVolunteerAsBuyer()
+                }
+            }
+            pledgeWebButton
+
+        case .buyerAssigned:
+            if context.record?.hasSettlementAccount == true {
+                UCPrimaryCTA("정산 안내 보기", systemImage: "wonsign.circle") {
+                    onOpenSettlement()
+                }
+            }
+            if isBuyer {
+                UCSecondaryCTA(title: "구매 완료") {
+                    onMarkPurchased()
+                }
+            }
+
+        case .purchased:
+            if isOwner {
+                UCPrimaryCTA("선물 받음", systemImage: "gift.fill") {
+                    onMarkReceived()
+                }
+            } else if context.record?.hasSettlementAccount == true {
+                UCSecondaryCTA(title: "정산 안내 보기") {
+                    onOpenSettlement()
+                }
+            }
+
+        case .received:
+            EmptyView()
+        }
+    }
+
+    @ViewBuilder
+    private var pledgeWebButton: some View {
+        if isShareEnabled, let pledgeWebURL {
+            UCSecondaryCTA(title: "같이 선물하기") {
+                openURL(pledgeWebURL)
+            }
+        } else if !isShareEnabled {
+            Text("프로필에서 위시리스트 공개를 켜면 같이 선물하기 페이지를 열 수 있어요.")
+                .font(.caption)
+                .foregroundStyle(UCColor.textSecond)
+        }
     }
 
     @ViewBuilder
     private var progressBlock: some View {
-        if let price = item.price, let progress {
+        if let price = item.price, let progress = context.progress {
             VStack(alignment: .leading, spacing: 8) {
-                HStack(alignment: .firstTextBaseline) {
-                    Text("모인 약속")
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(UCColor.textSecond)
-                    Spacer()
-                    Text("\(Int(progress * 100))%")
-                        .font(.title3.bold())
-                        .foregroundStyle(UCColor.textPrimary)
-                }
-
                 GeometryReader { geometry in
                     ZStack(alignment: .leading) {
                         Capsule()
                             .fill(UCColor.border.opacity(0.55))
                         Capsule()
                             .fill(UCColor.funding)
-                            .frame(width: geometry.size.width * progress)
+                            .frame(width: geometry.size.width * min(progress, 1))
                     }
                 }
                 .frame(height: 6)
 
                 HStack {
-                    Text("\(formatPrice(summary.totalAmount)) 모였어요")
+                    Text("\(formatPrice(context.summary.totalAmount)) 모였어요")
                         .font(.caption.weight(.semibold))
                         .foregroundStyle(UCColor.fundingText)
                     Spacer()
-                    if let remaining = summary.remaining(for: price) {
+                    if context.isGoalMet {
+                        Text("목표 달성")
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(UCColor.fundingText)
+                    } else if let remaining = context.summary.remaining(for: price) {
                         Text("\(formatPrice(remaining)) 남았어요")
                             .font(.caption)
                             .foregroundStyle(UCColor.textSecond)
                     }
                 }
             }
-        } else {
-            Text("\(formatPrice(summary.totalAmount)) · \(summary.participantCount)명 참여")
+        } else if !context.summary.pledges.isEmpty {
+            Text("\(formatPrice(context.summary.totalAmount)) · \(context.summary.participantCount)명 참여")
                 .font(.subheadline.weight(.semibold))
-                .foregroundStyle(UCColor.textPrimary)
         }
     }
 
@@ -110,7 +248,7 @@ struct FundingPledgeSection: View {
                 .font(.caption.weight(.semibold))
                 .foregroundStyle(UCColor.textSecond)
 
-            ForEach(summary.pledges) { pledge in
+            ForEach(context.summary.pledges) { pledge in
                 HStack(alignment: .top, spacing: 10) {
                     Circle()
                         .fill(UCColor.border)
@@ -122,15 +260,20 @@ struct FundingPledgeSection: View {
                         }
 
                     VStack(alignment: .leading, spacing: 2) {
-                        Text(pledge.displayContributorName)
-                            .font(.subheadline.weight(.semibold))
-                            .foregroundStyle(UCColor.textPrimary)
+                        HStack(spacing: 4) {
+                            Text(pledge.displayContributorName)
+                                .font(.subheadline.weight(.semibold))
+                            if pledge.contributorUserId == context.record?.buyerUserId {
+                                Text("대표")
+                                    .font(.caption2.weight(.bold))
+                                    .foregroundStyle(UCColor.fundingText)
+                            }
+                        }
 
                         if let message = pledge.message, !message.isEmpty {
                             Text(message)
                                 .font(.caption)
                                 .foregroundStyle(UCColor.textSecond)
-                                .fixedSize(horizontal: false, vertical: true)
                         }
                     }
 
@@ -138,26 +281,11 @@ struct FundingPledgeSection: View {
 
                     Text(formatPrice(pledge.amount))
                         .font(.subheadline.weight(.bold))
-                        .foregroundStyle(UCColor.textPrimary)
                 }
                 .padding(10)
                 .background(UCColor.bg)
                 .clipShape(RoundedRectangle(cornerRadius: 6))
             }
-        }
-    }
-
-    @ViewBuilder
-    private var pledgeWebAction: some View {
-        if isShareEnabled, let pledgeWebURL {
-            UCPrimaryCTA("같이 선물하기", systemImage: "gift") {
-                openURL(pledgeWebURL)
-            }
-        } else if !isShareEnabled {
-            Text("프로필에서 위시리스트 공개를 켜면 같이 선물하기 페이지를 열 수 있어요.")
-                .font(.caption)
-                .foregroundStyle(UCColor.textSecond)
-                .frame(maxWidth: .infinity, alignment: .leading)
         }
     }
 
@@ -169,9 +297,6 @@ struct FundingPledgeSection: View {
     }
 
     private func formatPrice(_ value: Int) -> String {
-        let formatter = NumberFormatter()
-        formatter.numberStyle = .decimal
-        let number = formatter.string(from: NSNumber(value: value)) ?? "\(value)"
-        return "₩\(number)"
+        RemittanceDeepLinkBuilder.formatPrice(value)
     }
 }
