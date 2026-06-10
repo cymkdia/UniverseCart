@@ -48,10 +48,12 @@ Safari: `http://localhost:8080/index.html?slug=본인슬러그`
 
 ## 4. 웹이 「불러오는 중…」에서 멈출 때
 
-1. 화면 **아래**에 빨간 오류 문구가 있는지 확인
-2. Supabase SQL Editor에서 `docs/M12-pledge-funding-grants-fix.sql` **Run**
-3. GitHub에 `web/share/index.html` 최신본 **Push** (수정 반영 후)
-4. Safari에서 **새로고침** (캐시 때문에 안 바뀌면 시크릿 탭으로 열기)
+1. Supabase SQL Editor에서 `docs/M12-pledge-funding-grants-fix.sql` **Run** (한 번만)
+2. GitHub에 `web/share/index.html` **최신본 Push** (스크립트를 페이지 맨 아래로 옮긴 버전)
+3. GitHub **Actions** 배포가 초록인지 확인
+4. Safari **새로고침** (안 바뀌면 시크릿 탭으로 링크 다시 열기)
+
+원인: Safari에서 CDN 스크립트가 늦게 로드되면 `main()`이 실행되지 않을 수 있어요. 최신 `index.html`은 이 문제를 고칩니다.
 
 ---
 

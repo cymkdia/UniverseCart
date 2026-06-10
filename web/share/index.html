@@ -4,8 +4,6 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Universe Cart · 위시리스트</title>
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="./config.js"></script>
     <style>
       * { box-sizing: border-box; margin: 0; padding: 0; }
       body {
@@ -299,6 +297,8 @@
       </div>
     </div>
 
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="./config.js"></script>
     <script>
       const mallNames = {
         cm29: "29CM",
@@ -722,20 +722,30 @@
         return true;
       }
 
+      function showFatal(message) {
+        document.getElementById("summary").textContent = "불러오지 못했어요";
+        const content = document.getElementById("content");
+        content.className = "state error";
+        content.textContent = message;
+      }
+
+      function bindSheetEvents() {
+        document.getElementById("closeSheet").addEventListener("click", closeSheet);
+        document.getElementById("overlay").addEventListener("click", (event) => {
+          if (event.target.id === "overlay") closeSheet();
+        });
+      }
+
       async function main() {
         const content = document.getElementById("content");
         const slug = getSlug();
         const config = window.UNIVERSE_CART_CONFIG;
 
-        document.getElementById("closeSheet").addEventListener("click", closeSheet);
-        document.getElementById("overlay").addEventListener("click", (event) => {
-          if (event.target.id === "overlay") closeSheet();
-        });
-
         if (!slug) {
           content.className = "state error";
           content.textContent =
             "공유 링크가 올바르지 않아요. (?slug=주소) 가 포함된 링크인지 확인해 주세요.";
+          document.getElementById("summary").textContent = "";
           return;
         }
 
@@ -743,7 +753,12 @@
           content.className = "state error";
           content.textContent =
             "config.js 가 없어요. config.example.js 를 복사해 config.js 를 만들고 Supabase URL·키를 넣어 주세요.";
+          document.getElementById("summary").textContent = "";
           return;
+        }
+
+        if (!window.supabase?.createClient) {
+          throw new Error("Supabase 스크립트를 불러오지 못했어요. 네트워크 연결 후 새로고침해 주세요.");
         }
 
         supabase = window.supabase.createClient(
@@ -797,15 +812,41 @@
         }
       }
 
+      let bootAttempts = 0;
+
+      function boot() {
+        bootAttempts += 1;
+
+        if (!window.supabase?.createClient || !window.UNIVERSE_CART_CONFIG) {
+          if (bootAttempts > 80) {
+            showFatal(
+              "페이지를 시작하지 못했어요.\nWi‑Fi 연결을 확인한 뒤 Safari에서 새로고침해 주세요."
+            );
+            return;
+          }
+          setTimeout(boot, 100);
+          return;
+        }
+
+        bindSheetEvents();
+        main().catch((error) => {
+          showFatal(error?.message || String(error));
+        });
+      }
+
       window.addEventListener("error", (event) => {
-        document.getElementById("summary").textContent = "불러오지 못했어요";
-        const content = document.getElementById("content");
-        content.className = "state error";
-        content.textContent =
-          "페이지 오류가 발생했어요.\n" + (event.message || "새로고침 후 다시 시도해 주세요.");
+        showFatal(
+          "페이지 오류가 발생했어요.\n" + (event.message || "새로고침 후 다시 시도해 주세요.")
+        );
       });
 
-      main();
+      window.addEventListener("unhandledrejection", (event) => {
+        showFatal(
+          event.reason?.message || String(event.reason || "알 수 없는 오류가 발생했어요.")
+        );
+      });
+
+      boot();
     </script>
   </body>
 </html>
