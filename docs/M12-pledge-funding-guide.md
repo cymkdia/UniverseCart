@@ -15,7 +15,10 @@
 
 ## 2. GitHub Pages (웹 반영)
 
-`web/share/index.html` 이 바뀌었으므로 **main에 Push** 하면 Actions가 자동 배포합니다.
+아래 **2개 파일**을 커밋 후 **main에 Push** 하면 Actions가 자동 배포합니다.
+
+- `web/share/index.html`
+- `web/share/share.js` ← 새 파일 (JS 분리)
 
 로컬만 테스트:
 
