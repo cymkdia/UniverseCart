@@ -326,6 +326,14 @@
       let selectedAmount = null;
       let authMode = "signin";
 
+      function escapeHtml(value) {
+        return String(value ?? "")
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;")
+          .replace(/"/g, "&quot;");
+      }
+
       function formatPrice(value) {
         if (value == null) return "가격 미입력";
         return "₩" + Number(value).toLocaleString("ko-KR");
@@ -425,7 +433,7 @@
                     </button>
                     ${
                       item.product_url
-                        ? `<a class="btn btn-secondary" href="${item.product_url}" target="_blank" rel="noopener">쇼핑몰에서 보기</a>`
+                        ? `<a class="btn btn-secondary" href="${escapeHtml(item.product_url)}" target="_blank" rel="noopener">쇼핑몰에서 보기</a>`
                         : ""
                     }
                   </div>
@@ -447,7 +455,7 @@
                   <div class="thumb">${thumb}</div>
                   <div class="body">
                     <div class="meta">${mall} · ${cat}</div>
-                    <div class="title">${item.title}</div>
+                    <div class="title">${escapeHtml(item.title)}</div>
                     <div class="price">${formatPrice(item.price)}</div>
                   </div>
                 </div>
@@ -688,10 +696,8 @@
       }
 
       async function reloadPledges() {
-        if (!wishItems.length) {
-          pledgesByItem = {};
-          return;
-        }
+        pledgesByItem = {};
+        if (!wishItems.length) return true;
 
         const ids = wishItems.map((i) => i.id);
         const { data, error } = await supabase
@@ -702,15 +708,18 @@
           .in("item_id", ids)
           .order("created_at", { ascending: false });
 
-        if (error) throw error;
+        if (error) {
+          console.warn("funding_pledges load failed:", error);
+          return false;
+        }
 
-        pledgesByItem = {};
         (data || []).forEach((pledge) => {
           if (!pledgesByItem[pledge.item_id]) {
             pledgesByItem[pledge.item_id] = [];
           }
           pledgesByItem[pledge.item_id].push(pledge);
         });
+        return true;
       }
 
       async function main() {
@@ -773,14 +782,28 @@
           if (itemsError) throw itemsError;
 
           wishItems = items || [];
-          await reloadPledges();
+          const pledgesOK = await reloadPledges();
           renderItems(profile.display_name, wishItems);
+
+          if (!pledgesOK) {
+            const summary = document.getElementById("summary");
+            summary.innerHTML +=
+              '<br><span style="color:#d53f00;font-size:12px">약속 펀딩만 불러오지 못했어요. 위시 목록은 표시됩니다.</span>';
+          }
         } catch (error) {
+          document.getElementById("summary").textContent = "불러오지 못했어요";
           content.className = "state error";
-          content.textContent =
-            "불러오지 못했어요.\n" + (error.message || String(error));
+          content.textContent = error.message || String(error);
         }
       }
+
+      window.addEventListener("error", (event) => {
+        document.getElementById("summary").textContent = "불러오지 못했어요";
+        const content = document.getElementById("content");
+        content.className = "state error";
+        content.textContent =
+          "페이지 오류가 발생했어요.\n" + (event.message || "새로고침 후 다시 시도해 주세요.");
+      });
 
       main();
     </script>

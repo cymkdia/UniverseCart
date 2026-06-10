@@ -80,3 +80,7 @@ create policy "pledges_update_contributor"
 create policy "pledges_delete_contributor"
   on public.funding_pledges for delete
   using (auth.uid() = contributor_user_id);
+
+-- API(anon/authenticated)에서 테이블 접근 허용
+grant select on table public.funding_pledges to anon, authenticated;
+grant insert, update, delete on table public.funding_pledges to authenticated;

@@ -46,7 +46,16 @@ Safari: `http://localhost:8080/index.html?slug=본인슬러그`
 
 ---
 
-## 4. 참고
+## 4. 웹이 「불러오는 중…」에서 멈출 때
+
+1. 화면 **아래**에 빨간 오류 문구가 있는지 확인
+2. Supabase SQL Editor에서 `docs/M12-pledge-funding-grants-fix.sql` **Run**
+3. GitHub에 `web/share/index.html` 최신본 **Push** (수정 반영 후)
+4. Safari에서 **새로고침** (캐시 때문에 안 바뀌면 시크릿 탭으로 열기)
+
+---
+
+## 5. 참고
 
 - 한 상품당 **계정 1개 = 약속 1개** (다시 남기면 금액·메시지 **업데이트**)
 - 위시 **주인**은 자기 상품에 약속할 수 없음
