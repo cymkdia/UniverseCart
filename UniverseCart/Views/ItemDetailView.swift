@@ -2,6 +2,7 @@ import SwiftUI
 
 struct ItemDetailView: View {
     @Environment(\.openURL) private var openURL
+    @Environment(AuthSession.self) private var auth
 
     let item: Item
     let onToggleListType: () -> Void
@@ -9,6 +10,7 @@ struct ItemDetailView: View {
 
     @State private var pledgeSummary = FundingPledgeSummary(pledges: [])
     @State private var isLoadingPledges = false
+    @State private var shareProfile: ProfileRecord?
 
     private var canOpenStore: Bool {
         guard let url = URL(string: item.productURL) else { return false }
@@ -29,7 +31,9 @@ struct ItemDetailView: View {
                         FundingPledgeSection(
                             item: item,
                             summary: pledgeSummary,
-                            isLoading: isLoadingPledges
+                            isLoading: isLoadingPledges,
+                            pledgeWebURL: pledgeWebURL,
+                            isShareEnabled: shareProfile?.shareEnabled == true
                         )
                     }
 
@@ -65,8 +69,20 @@ struct ItemDetailView: View {
             }
         }
         .task(id: item.id) {
+            await loadShareProfileIfNeeded()
             await loadPledgesIfNeeded()
         }
+    }
+
+    private var pledgeWebURL: URL? {
+        guard let slug = shareProfile?.shareSlug,
+              shareProfile?.shareEnabled == true,
+              let urlString = ShareProfileService.pledgeURL(slug: slug, itemId: item.id)
+        else {
+            return nil
+        }
+
+        return URL(string: urlString)
     }
 
     private var productImage: some View {
@@ -126,6 +142,26 @@ struct ItemDetailView: View {
                 }
                 .buttonStyle(.plain)
             }
+        }
+    }
+
+    @MainActor
+    private func loadShareProfileIfNeeded() async {
+        guard item.listType == .wishlist,
+              let client = SupabaseService.shared.client,
+              let userId = auth.currentUserId()
+        else {
+            shareProfile = nil
+            return
+        }
+
+        do {
+            shareProfile = try await ShareProfileService.fetchProfile(
+                client: client,
+                userId: userId
+            )
+        } catch {
+            shareProfile = nil
         }
     }
 

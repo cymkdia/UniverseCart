@@ -60,6 +60,11 @@ enum ShareProfileService {
         return "\(trimmed)?slug=\(slug)"
     }
 
+    static func pledgeURL(slug: String, itemId: UUID) -> String? {
+        guard let base = shareURL(slug: slug) else { return nil }
+        return "\(base)&item=\(itemId.uuidString.lowercased())"
+    }
+
     private static func makeSlug(from email: String?, userId: UUID) -> String {
         if let email,
            let prefix = email.split(separator: "@").first {

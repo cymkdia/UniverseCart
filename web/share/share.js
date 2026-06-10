@@ -44,6 +44,22 @@ function getSlug() {
   return new URLSearchParams(window.location.search).get("slug");
 }
 
+function getPledgeItemId() {
+  return new URLSearchParams(window.location.search).get("item");
+}
+
+function openPledgeFromQuery() {
+  const itemId = getPledgeItemId();
+  if (!itemId) return;
+
+  const item = wishItems.find(
+    (entry) => String(entry.id).toLowerCase() === itemId.toLowerCase()
+  );
+  if (item) {
+    openPledgeSheet(item);
+  }
+}
+
 function pledgesForItem(itemId) {
   return pledgesByItem[itemId] || [];
 }
@@ -583,6 +599,7 @@ async function main() {
     wishItems = items || [];
     const pledgesOK = await reloadPledges();
     renderItems(profile.display_name, wishItems);
+    openPledgeFromQuery();
 
     if (!pledgesOK) {
       const summary = document.getElementById("summary");

@@ -2,9 +2,13 @@ import SwiftUI
 
 /// 위시 상품 상세 — 약속 펀딩 현황 (읽기 전용, 참여는 웹)
 struct FundingPledgeSection: View {
+    @Environment(\.openURL) private var openURL
+
     let item: Item
     let summary: FundingPledgeSummary
     var isLoading: Bool = false
+    var pledgeWebURL: URL?
+    var isShareEnabled: Bool = false
 
     private var progress: Double? {
         summary.progress(for: item.price)
@@ -23,6 +27,8 @@ struct FundingPledgeSection: View {
                 progressBlock
                 participantList
             }
+
+            pledgeWebAction
 
             disclaimer
         }
@@ -138,6 +144,20 @@ struct FundingPledgeSection: View {
                 .background(UCColor.bg)
                 .clipShape(RoundedRectangle(cornerRadius: 6))
             }
+        }
+    }
+
+    @ViewBuilder
+    private var pledgeWebAction: some View {
+        if isShareEnabled, let pledgeWebURL {
+            UCPrimaryCTA("같이 선물하기", systemImage: "gift") {
+                openURL(pledgeWebURL)
+            }
+        } else if !isShareEnabled {
+            Text("프로필에서 위시리스트 공개를 켜면 같이 선물하기 페이지를 열 수 있어요.")
+                .font(.caption)
+                .foregroundStyle(UCColor.textSecond)
+                .frame(maxWidth: .infinity, alignment: .leading)
         }
     }
 
