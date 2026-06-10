@@ -207,40 +207,95 @@ function closeSheet() {
   activeItem = null;
 }
 
-function renderAuthForm(container, errorText) {
+function readAuthFieldValues() {
+  return {
+    email: document.getElementById("authEmail")?.value?.trim() || "",
+    password: document.getElementById("authPassword")?.value || "",
+  };
+}
+
+function renderAuthForm(container, errorText, options = {}) {
+  const {
+    successText = "",
+    preserveEmail = "",
+    preservePassword = "",
+  } = options;
+  const submitLabel =
+    authMode === "signin" ? "로그인하고 약속하기" : "가입하고 약속하기";
+
   container.innerHTML = `
     <div class="auth-tabs">
       <button type="button" class="auth-tab ${authMode === "signin" ? "on" : ""}" data-auth-mode="signin">로그인</button>
       <button type="button" class="auth-tab ${authMode === "signup" ? "on" : ""}" data-auth-mode="signup">회원가입</button>
     </div>
-    ${errorText ? `<div class="form-error">${errorText}</div>` : ""}
-    <div class="field">
-      <label for="authEmail">이메일</label>
-      <input id="authEmail" type="email" autocomplete="email" placeholder="you@example.com" />
-    </div>
-    <div class="field">
-      <label for="authPassword">비밀번호</label>
-      <input id="authPassword" type="password" autocomplete="current-password" placeholder="6자 이상" />
-    </div>
-    <button type="button" class="btn btn-primary" id="authSubmit" style="width:100%">
-      ${authMode === "signin" ? "로그인하고 약속하기" : "가입하고 약속하기"}
-    </button>
+    ${successText ? `<div class="form-success">${escapeHtml(successText)}</div>` : ""}
+    ${errorText ? `<div class="form-error">${escapeHtml(errorText)}</div>` : ""}
+    <form id="authForm" novalidate>
+      <div class="field">
+        <label for="authEmail">이메일</label>
+        <input
+          id="authEmail"
+          name="email"
+          type="email"
+          inputmode="email"
+          autocomplete="email"
+          placeholder="you@example.com"
+          value="${escapeHtml(preserveEmail)}"
+          required
+        />
+      </div>
+      <div class="field">
+        <label for="authPassword">비밀번호</label>
+        <input
+          id="authPassword"
+          name="password"
+          type="password"
+          autocomplete="${authMode === "signup" ? "new-password" : "current-password"}"
+          placeholder="6자 이상"
+          value="${escapeHtml(preservePassword)}"
+          minlength="6"
+          required
+        />
+      </div>
+      <button type="submit" class="btn btn-primary" id="authSubmit" style="width:100%">
+        ${submitLabel}
+      </button>
+    </form>
   `;
 
   container.querySelectorAll("[data-auth-mode]").forEach((tab) => {
     tab.addEventListener("click", () => {
+      const { email, password } = readAuthFieldValues();
       authMode = tab.getAttribute("data-auth-mode");
-      renderAuthForm(container, "");
+      renderAuthForm(container, "", { preserveEmail: email, preservePassword: password });
     });
   });
 
-  document.getElementById("authSubmit").addEventListener("click", async () => {
+  document.getElementById("authForm").addEventListener("submit", async (event) => {
+    event.preventDefault();
+
     const email = document.getElementById("authEmail").value.trim();
     const password = document.getElementById("authPassword").value;
+    const submitButton = document.getElementById("authSubmit");
+
     if (!email || !password) {
-      renderAuthForm(container, "이메일과 비밀번호를 입력해 주세요.");
+      renderAuthForm(container, "이메일과 비밀번호를 입력해 주세요.", {
+        preserveEmail: email,
+        preservePassword: password,
+      });
       return;
     }
+
+    if (password.length < 6) {
+      renderAuthForm(container, "비밀번호는 6자 이상이어야 해요.", {
+        preserveEmail: email,
+        preservePassword: password,
+      });
+      return;
+    }
+
+    submitButton.disabled = true;
+    submitButton.textContent = "처리 중…";
 
     try {
       const result =
@@ -249,17 +304,45 @@ function renderAuthForm(container, errorText) {
           : await supabase.auth.signUp({ email, password });
 
       if (result.error) throw result.error;
-      if (!result.data.session && authMode === "signup") {
-        renderAuthForm(
-          container,
-          "가입했어요. 이메일 확인이 필요하면 메일함을 확인한 뒤 로그인해 주세요."
-        );
-        authMode = "signin";
+
+      if (authMode === "signup") {
+        const alreadyRegistered =
+          result.data.user?.identities?.length === 0;
+        if (alreadyRegistered) {
+          authMode = "signin";
+          renderAuthForm(
+            container,
+            "이미 가입된 이메일이에요. 로그인 탭에서 로그인해 주세요.",
+            { preserveEmail: email }
+          );
+          return;
+        }
+
+        if (!result.data.session) {
+          authMode = "signin";
+          renderAuthForm(container, "", {
+            successText:
+              "가입했어요! 이메일 확인이 필요하면 메일함을 확인한 뒤 로그인해 주세요.",
+            preserveEmail: email,
+          });
+          return;
+        }
+      }
+
+      const user = result.data.session?.user ?? (await getSessionUser());
+      if (!user) {
+        renderAuthForm(container, "로그인에 실패했어요. 다시 시도해 주세요.", {
+          preserveEmail: email,
+        });
         return;
       }
-      await openPledgeSheet(activeItem);
+
+      renderPledgeForm(container, user, "", "");
     } catch (error) {
-      renderAuthForm(container, error.message || String(error));
+      renderAuthForm(container, error.message || String(error), {
+        preserveEmail: email,
+        preservePassword: password,
+      });
     }
   });
 }
