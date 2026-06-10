@@ -103,7 +103,7 @@ struct FundingPledgeSection: View {
     }
 
     private var badgeBackground: Color {
-        context.isGoalMet ? UCColor.funding.opacity(0.15) : UCColor.border.opacity(0.35)
+        context.isGoalMet ? UCColor.fundingSoft : UCColor.border.opacity(0.35)
     }
 
     @ViewBuilder
@@ -267,6 +267,10 @@ struct FundingPledgeSection: View {
                                 Text("대표")
                                     .font(.caption2.weight(.bold))
                                     .foregroundStyle(UCColor.fundingText)
+                                    .padding(.horizontal, 6)
+                                    .padding(.vertical, 2)
+                                    .background(UCColor.fundingSoft)
+                                    .clipShape(Capsule())
                             }
                         }
 

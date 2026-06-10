@@ -70,8 +70,8 @@ struct SettlementGuideView: View {
         }
         .padding(12)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(UCColor.surface)
-        .clipShape(RoundedRectangle(cornerRadius: 8))
+        .background(UCColor.fundingSoft)
+        .clipShape(RoundedRectangle(cornerRadius: UCRadius.md))
     }
 
     private var accountSummary: some View {
@@ -129,7 +129,7 @@ struct SettlementGuideView: View {
                         .font(.caption2.weight(.bold))
                         .padding(.horizontal, 6)
                         .padding(.vertical, 2)
-                        .background(UCColor.funding.opacity(0.2))
+                        .background(UCColor.fundingSoft)
                         .clipShape(Capsule())
                 }
                 Spacer()

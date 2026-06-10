@@ -154,7 +154,7 @@ function renderItems(ownerName, items) {
                 ? `<div class="fund-top">
                     <span class="fund-label">약속 펀딩</span>
                     <span class="fund-pct">${goalMet ? "100%" : stats.pct + "%"}</span>
-                    ${goalMet ? '<span class="fund-label" style="color:#3a8c5c;margin-left:6px">목표 달성</span>' : ""}
+                    ${goalMet ? '<span class="fund-label" style="color:#1f6e70;margin-left:6px">목표 달성</span>' : ""}
                   </div>
                   <div class="fund-bar"><div class="fund-fill" style="width:${goalMet ? 100 : barWidth}%"></div></div>
                   <div class="fund-meta">

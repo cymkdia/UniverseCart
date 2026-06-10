@@ -51,8 +51,16 @@ enum UCColor {
         }
     }
 
-    static let funding = Color(hex: "7BAF92")
-    static let fundingText = Color(hex: "3A8C5C")
+    static let funding = Color(hex: "3B9B9C")
+    static let fundingSoft = Color(hex: "E4F2F2")
+    static let fundingText = Color(hex: "1F6E70")
+}
+
+enum UCRadius {
+    static let xs: CGFloat = 4
+    static let sm: CGFloat = 6
+    static let md: CGFloat = 8
+    static let lg: CGFloat = 12
 }
 
 enum UCLayout {

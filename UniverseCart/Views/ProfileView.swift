@@ -230,18 +230,12 @@ struct ProfileView: View {
             Text("이메일로 로그인")
                 .font(.headline)
 
-            TextField("이메일", text: $email)
+            UCInputField(placeholder: "이메일", text: $email)
                 .textInputAutocapitalization(.never)
                 .keyboardType(.emailAddress)
                 .autocorrectionDisabled()
-                .padding(12)
-                .background(UCColor.surface)
-                .clipShape(RoundedRectangle(cornerRadius: 8))
 
-            SecureField("비밀번호 (6자 이상)", text: $password)
-                .padding(12)
-                .background(UCColor.surface)
-                .clipShape(RoundedRectangle(cornerRadius: 8))
+            UCSecureInputField(placeholder: "비밀번호 (6자 이상)", text: $password)
 
             HStack(spacing: UCButtonMetrics.inlineSpacing) {
                 Button("로그인") {

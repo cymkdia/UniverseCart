@@ -90,20 +90,12 @@ struct OnboardingPasteLinkPage: View {
             Image(systemName: "link")
                 .foregroundStyle(UCColor.textSecond)
 
-            TextField("https://...", text: $urlText)
+            UCInputField(placeholder: "https://...", text: $urlText)
                 .textInputAutocapitalization(.never)
                 .autocorrectionDisabled()
                 .keyboardType(.URL)
                 .font(.subheadline)
         }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 14)
-        .background(UCColor.surface)
-        .clipShape(RoundedRectangle(cornerRadius: 8))
-        .overlay(
-            RoundedRectangle(cornerRadius: 8)
-                .stroke(UCColor.border, lineWidth: 1)
-        )
     }
 
     private var fetchButton: some View {

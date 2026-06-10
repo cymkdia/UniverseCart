@@ -164,11 +164,11 @@ struct ItemDetailView: View {
 
             Text(item.listType.displayName)
                 .font(.caption.weight(.medium))
-                .foregroundStyle(UCColor.textSecond)
+                .foregroundStyle(item.listType == .receivedGift ? UCColor.fundingText : UCColor.textSecond)
                 .padding(.horizontal, 8)
                 .padding(.vertical, 4)
-                .background(UCColor.surface)
-                .clipShape(RoundedRectangle(cornerRadius: 4))
+                .background(item.listType == .receivedGift ? UCColor.fundingSoft : UCColor.surface)
+                .clipShape(RoundedRectangle(cornerRadius: UCRadius.xs))
         }
     }
 
