@@ -182,6 +182,11 @@ extension View {
 
 **Destructive** — 정의되지 않음. 필요해지면 `UCColor.accent`로 텍스트 색만 다르게(배경은 흰색). 빨강 배경 버튼은 금지.
 
+**Funding action (펀딩 컨텍스트 강조)** — 펀딩 사이클을 *완결·축하·진행*시키는 액션(예: "선물 받음", "내가 대표로 살게요", "정산 안내 보기")은 검정 Primary 대신 funding 토큰 사용.
+- 배경 `UCColor.funding`(#3B9B9C), 텍스트 `UCColor.bg`(흰색). 높이·반경·폰트는 `UCPrimaryButtonStyle`과 동일 — **색만 다른 같은 형태**여야 위계는 유지하면서 ‘펀딩 흐름의 일부’ 의미가 드러남.
+- 동일 화면에 검정 Primary와 funding 액션이 *다른 맥락*으로 함께 있을 수 있음(예: "29CM에서 보기"는 일반 Primary, "선물 받음"은 funding). 단 같은 맥락에 두 종 동시 노출 금지.
+- 코드: `UCFundingButtonStyle` 추가 권장 — `UCPrimaryButtonStyle`을 미러링하고 배경만 `UCColor.funding`. `UCFundingCTA(_:systemImage:action:)` 헬퍼도 함께.
+
 **규칙**
 - 한 화면에 Primary는 1개. 두 개 필요하면 우선순위 재검토.
 - 버튼 라벨은 **동사로 시작**: "위시리스트에 담기", "공유하기", "결제하러 가기". 명사형("결제") 지양.
@@ -266,9 +271,31 @@ struct UCInputField: View {
 
 ### 3.8 Toast / In-app Banner
 
-- `InAppNotificationBanner` 사용(이미 있음).
-- 위치: 상단(아래로 슬라이드). 자동 4초 dismiss + 사용자 탭 시 즉시 닫힘.
-- 색: 기본은 `gray900` 배경 + 흰 텍스트. 성공은 `funding`, 경고는 `accent`.
+`InAppNotificationBanner` 사용. 위치: 상단(아래로 슬라이드). 자동 4초 dismiss + 사용자 탭 시 즉시 닫힘.
+
+**텍스트 위계** (가장 자주 깨지는 부분)
+- 제목 — `title3` (17pt semibold) 또는 `.subheadline.weight(.semibold)`. 무슨 일이 일어났는지.
+- 부제 — `.footnote` (13pt regular). 다음 행동·짧은 맥락. 흰 배경 토스트면 `textSecond`, 어두운 배경이면 흰색 80% 투명도.
+- 라인 간격: 제목 4pt, 제목↔부제 사이 4~6pt.
+
+**아이콘**
+- 좌측 18~20pt SF Symbol. 너무 키우면 텍스트가 시각적으로 묻힘.
+- 아이콘 컨테이너(원형 배경 등) 사용 금지 — 토스트 자체가 이미 카드형.
+
+**카피 원칙**
+- 제목은 *현상*, 부제는 *다음 행동·이유*. 같은 문장으로 시작 금지.
+- 제목 12자 이내, 부제 28자 이내 권장.
+- 다음 액션이 있으면 우측에 "확인하기 →" 텍스트 링크(`.footnote` semibold).
+
+**색**
+- 기본: `gray900` 배경 + 흰 텍스트
+- 펀딩·축하: `funding` 배경 + 흰 텍스트
+- 경고: `accent` 배경 + 흰 텍스트 (희소하게)
+
+**예시**
+- ✅ 제목 "선물이 도착했어요" · 부제 "함께해준 친구들에게 감사 인사를 남겨보세요"
+- ✅ 제목 "100% 달성!" · 부제 "이제 누가 대표로 살지 정해주세요"
+- ❌ 제목 "선물을 받았어요" · 부제 "선물을 받았어요. 함께해 주셔서 감사해요!" — 같은 문장 반복
 
 ### 3.9 Progress (Funding Bar)
 
@@ -276,6 +303,31 @@ struct UCInputField: View {
 - 채움: `UCColor.funding`(#3B9B9C)
 - 높이 6pt, 코너 3pt
 - 라벨: "62% · 3명 참여 중" 식으로 비율 + 참여자 함께.
+
+### 3.10 Funding · Viewer × State UI 매트릭스
+
+펀딩 섹션 UI는 항상 **두 축**으로 분기시킬 것 — *누가 보는가*(viewer)와 *현재 상태*(state). 한 축이라도 빠지면 본인 위시에 "같이 선물하기" 같은 모순이 생김.
+
+```swift
+let viewerIsOwner = (auth.user?.id == item.ownerUserId)
+// FundingPledgeSection은 viewerIsOwner: Bool 과 state: FundingState 두 입력으로 분기
+```
+
+| Viewer \ State | 모으는 중 (open) | 100% 달성 (대표 대기) | 정산·구매 중 (assigned·purchased) | 선물 받음 (received) |
+|---|---|---|---|---|
+| **본인 (owner)** | **"위시리스트 공유하기"** Primary CTA + 안내 "친구들에게 공유해서 함께 모아보세요"<br>⚠️ 같이 선물하기 절대 노출 X | 친구 약속 카드 + "대표를 기다리고 있어요" 메시지. 본인이 누를 액션 없음 | 진행 정보 읽기 전용 + 참여자·금액 표시 | **"선물 받음"** funding 버튼 → 받은 선물 아카이브로 이동 |
+| **친구 (friend)** | **"같이 선물하기"** Primary CTA | **"내가 대표로 살게요"** funding 버튼 | 대표: "정산 안내 보기" + "구매 완료" funding 버튼 / 일반 참여자: 읽기 전용 진행 표시 | 완료 상태 + 감사 메시지(주인이 등록 시) |
+
+**구현 규칙**
+- `FundingPledgeSection` 진입 시 `viewerIsOwner`를 먼저 계산해서 분기. 두 축은 *상호 배타가 아닌 매트릭스* — `if state == .open && viewerIsOwner` 식으로 8칸 모두 명시.
+- 본인의 "선물 받음" 버튼은 반드시 `UCColor.funding` 배경(3.1 Funding action 규칙 적용). 검정 Primary 금지.
+- 친구 시점 UI는 *공유 위시리스트 웹*과 *친구가 앱에서 열람한 위시* 양쪽에 동일하게 적용.
+
+**카피 가이드 (본인 시점)**
+- 모으는 중: "친구들에게 공유해서 함께 모아보세요"
+- 100% 대표 대기: "친구 한 명이 대표로 구매할 차례예요"
+- 구매 완료: "곧 선물이 도착해요"
+- 선물 받음: "받은 선물 아카이브에 보관됐어요"
 
 ---
 
