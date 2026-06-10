@@ -7,6 +7,9 @@ struct ItemDetailView: View {
     let onToggleListType: () -> Void
     let onTapPrice: () -> Void
 
+    @State private var pledgeSummary = FundingPledgeSummary(pledges: [])
+    @State private var isLoadingPledges = false
+
     private var canOpenStore: Bool {
         guard let url = URL(string: item.productURL) else { return false }
         return url.scheme == "https" || url.scheme == "http"
@@ -21,6 +24,14 @@ struct ItemDetailView: View {
                     metaSection
                     titleSection
                     priceSection
+
+                    if item.listType == .wishlist {
+                        FundingPledgeSection(
+                            item: item,
+                            summary: pledgeSummary,
+                            isLoading: isLoadingPledges
+                        )
+                    }
 
                     if canOpenStore {
                         UCPrimaryCTA("\(item.mall.displayName)에서 보기", systemImage: "arrow.up.right.square") {
@@ -52,6 +63,9 @@ struct ItemDetailView: View {
                     item.listType == .wishlist ? "장바구니로 옮기기" : "위시리스트에 담기"
                 )
             }
+        }
+        .task(id: item.id) {
+            await loadPledgesIfNeeded()
         }
     }
 
@@ -112,6 +126,28 @@ struct ItemDetailView: View {
                 }
                 .buttonStyle(.plain)
             }
+        }
+    }
+
+    @MainActor
+    private func loadPledgesIfNeeded() async {
+        guard item.listType == .wishlist,
+              let client = SupabaseService.shared.client
+        else {
+            return
+        }
+
+        isLoadingPledges = true
+        defer { isLoadingPledges = false }
+
+        do {
+            let pledges = try await FundingPledgeService.fetchPledges(
+                client: client,
+                itemId: item.id
+            )
+            pledgeSummary = FundingPledgeSummary(pledges: pledges)
+        } catch {
+            pledgeSummary = FundingPledgeSummary(pledges: [])
         }
     }
 

@@ -40,10 +40,12 @@
       .summary strong { color: #19191a; }
       .list { display: flex; flex-direction: column; gap: 0; }
       .item {
-        display: flex;
-        gap: 12px;
         padding: 14px 0;
         border-bottom: 1px solid #e4e4e4;
+      }
+      .item-top {
+        display: flex;
+        gap: 12px;
       }
       .thumb {
         width: 68px;
@@ -67,6 +69,80 @@
         margin-bottom: 6px;
       }
       .price { font-size: 13px; font-weight: 600; }
+      .fund-block {
+        margin-top: 12px;
+        padding: 12px;
+        background: #f7f6f3;
+        border-radius: 8px;
+      }
+      .fund-top {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-end;
+        margin-bottom: 6px;
+      }
+      .fund-label {
+        font-size: 10px;
+        color: #b8b5ae;
+        font-weight: 600;
+        letter-spacing: 0.3px;
+        text-transform: uppercase;
+      }
+      .fund-pct {
+        font-size: 18px;
+        font-weight: 700;
+        color: #19191a;
+      }
+      .fund-bar {
+        height: 6px;
+        background: #f0eee8;
+        border-radius: 3px;
+        overflow: hidden;
+        margin-bottom: 8px;
+      }
+      .fund-fill {
+        height: 100%;
+        background: #7baf92;
+        border-radius: 3px;
+      }
+      .fund-meta {
+        display: flex;
+        justify-content: space-between;
+        font-size: 11px;
+        margin-bottom: 10px;
+      }
+      .fund-collected { color: #3a8c5c; font-weight: 600; }
+      .fund-remaining { color: #c0bdb6; }
+      .fund-participants {
+        font-size: 11px;
+        color: #6b6b6b;
+        margin-bottom: 10px;
+        line-height: 1.45;
+      }
+      .btn-row { display: flex; gap: 8px; flex-wrap: wrap; }
+      .btn {
+        appearance: none;
+        border: none;
+        border-radius: 8px;
+        padding: 10px 14px;
+        font-size: 13px;
+        font-weight: 600;
+        cursor: pointer;
+        text-decoration: none;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+      }
+      .btn-primary {
+        background: #19191a;
+        color: #fff;
+        flex: 1;
+      }
+      .btn-secondary {
+        background: #fff;
+        color: #19191a;
+        border: 1px solid #e4e4e4;
+      }
       .muted { color: #5d5d5d; font-weight: 400; }
       .state {
         text-align: center;
@@ -81,6 +157,124 @@
         text-align: center;
         font-size: 11px;
         color: #a0a0a0;
+        line-height: 1.5;
+      }
+      .overlay {
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.45);
+        display: none;
+        align-items: flex-end;
+        justify-content: center;
+        z-index: 100;
+        padding: 16px;
+      }
+      .overlay.open { display: flex; }
+      .sheet {
+        width: 100%;
+        max-width: 420px;
+        max-height: 90vh;
+        overflow-y: auto;
+        background: #fff;
+        border-radius: 14px 14px 10px 10px;
+        padding: 20px 18px 24px;
+      }
+      .sheet h2 {
+        font-size: 17px;
+        font-weight: 700;
+        margin-bottom: 6px;
+      }
+      .sheet-sub {
+        font-size: 12px;
+        color: #6b6b6b;
+        line-height: 1.5;
+        margin-bottom: 16px;
+      }
+      .field { margin-bottom: 12px; }
+      .field label {
+        display: block;
+        font-size: 11px;
+        color: #6b6b6b;
+        margin-bottom: 6px;
+        font-weight: 600;
+      }
+      .field input,
+      .field textarea {
+        width: 100%;
+        border: 1px solid #e4e4e4;
+        border-radius: 8px;
+        padding: 10px 12px;
+        font-size: 14px;
+        font-family: inherit;
+      }
+      .field textarea { min-height: 72px; resize: vertical; }
+      .amount-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 6px;
+        margin-bottom: 12px;
+      }
+      .amt-chip {
+        border: 1px solid #e4e4e4;
+        border-radius: 8px;
+        padding: 10px;
+        text-align: center;
+        cursor: pointer;
+        background: #fff;
+      }
+      .amt-chip.on {
+        border-color: #19191a;
+        background: #fafaf8;
+      }
+      .amt-val { font-size: 14px; font-weight: 700; }
+      .amt-label { font-size: 9px; color: #c0bdb6; margin-top: 2px; }
+      .amt-chip.on .amt-label { color: #888; }
+      .auth-tabs {
+        display: flex;
+        gap: 8px;
+        margin-bottom: 14px;
+      }
+      .auth-tab {
+        flex: 1;
+        padding: 8px;
+        border-radius: 8px;
+        border: 1px solid #e4e4e4;
+        background: #fff;
+        font-size: 12px;
+        font-weight: 600;
+        cursor: pointer;
+      }
+      .auth-tab.on {
+        border-color: #19191a;
+        background: #fafaf8;
+      }
+      .form-error {
+        color: #d53f00;
+        font-size: 12px;
+        margin-bottom: 10px;
+        line-height: 1.4;
+      }
+      .form-success {
+        color: #3a8c5c;
+        font-size: 12px;
+        margin-bottom: 10px;
+      }
+      .sheet-close {
+        float: right;
+        border: none;
+        background: none;
+        font-size: 20px;
+        color: #888;
+        cursor: pointer;
+        line-height: 1;
+      }
+      .session-bar {
+        font-size: 11px;
+        color: #6b6b6b;
+        margin-bottom: 14px;
+        padding: 8px 10px;
+        background: #f4f4f4;
+        border-radius: 6px;
       }
     </style>
   </head>
@@ -90,7 +284,19 @@
       <h1 id="ownerTitle">위시리스트</h1>
       <div class="summary" id="summary">불러오는 중…</div>
       <div id="content" class="state">잠시만 기다려 주세요.</div>
-      <footer>공개된 위시리스트만 표시됩니다.</footer>
+      <footer>
+        공개된 위시리스트만 표시됩니다.<br />
+        약속 펀딩은 금액·메시지 기록만 하며, UC는 결제를 받지 않아요.
+      </footer>
+    </div>
+
+    <div class="overlay" id="overlay" aria-hidden="true">
+      <div class="sheet" role="dialog" aria-modal="true">
+        <button type="button" class="sheet-close" id="closeSheet" aria-label="닫기">×</button>
+        <h2 id="sheetTitle">같이 선물하기</h2>
+        <p class="sheet-sub" id="sheetSub"></p>
+        <div id="sheetBody"></div>
+      </div>
     </div>
 
     <script>
@@ -99,6 +305,7 @@
         musinsa: "무신사",
         wconcept: "W컨셉",
         naver: "네이버",
+        kurly: "마켓컬리",
         etc: "기타",
       };
 
@@ -111,14 +318,42 @@
         sports: "스포츠",
       };
 
+      let supabase = null;
+      let ownerProfile = null;
+      let wishItems = [];
+      let pledgesByItem = {};
+      let activeItem = null;
+      let selectedAmount = null;
+      let authMode = "signin";
+
       function formatPrice(value) {
         if (value == null) return "가격 미입력";
         return "₩" + Number(value).toLocaleString("ko-KR");
       }
 
       function getSlug() {
-        const params = new URLSearchParams(window.location.search);
-        return params.get("slug");
+        return new URLSearchParams(window.location.search).get("slug");
+      }
+
+      function pledgesForItem(itemId) {
+        return pledgesByItem[itemId] || [];
+      }
+
+      function fundingStats(item) {
+        const pledges = pledgesForItem(item.id);
+        const total = pledges.reduce((sum, p) => sum + p.amount, 0);
+        const price = item.price;
+        const pct =
+          price && price > 0
+            ? Math.min(100, Math.round((total / price) * 100))
+            : null;
+        const remaining =
+          price && price > 0 ? Math.max(0, price - total) : null;
+        return { pledges, total, pct, remaining };
+      }
+
+      function contributorLabel(pledge) {
+        return pledge.contributor_name || "친구";
       }
 
       function renderItems(ownerName, items) {
@@ -153,24 +388,340 @@
             const thumb = item.image_url
               ? `<img src="${item.image_url}" alt="" />`
               : "";
+            const stats = fundingStats(item);
+            const names = stats.pledges
+              .slice(0, 3)
+              .map((p) => contributorLabel(p))
+              .join(", ");
+            const participantLine = stats.pledges.length
+              ? `${stats.pledges.length}명 참여` +
+                (names ? ` · ${names}` : "")
+              : "아직 약속이 없어요";
+
+            let fundHTML = "";
+            if (stats.pledges.length || item.price) {
+              const barWidth = stats.pct != null ? stats.pct : 0;
+              fundHTML = `
+                <div class="fund-block">
+                  ${
+                    stats.pct != null
+                      ? `<div class="fund-top">
+                          <span class="fund-label">약속 펀딩</span>
+                          <span class="fund-pct">${stats.pct}%</span>
+                        </div>
+                        <div class="fund-bar"><div class="fund-fill" style="width:${barWidth}%"></div></div>
+                        <div class="fund-meta">
+                          <span class="fund-collected">${formatPrice(stats.total)} 모였어요</span>
+                          <span class="fund-remaining">${formatPrice(stats.remaining)} 남았어요</span>
+                        </div>`
+                      : `<div class="fund-meta">
+                          <span class="fund-collected">${formatPrice(stats.total)} 약속</span>
+                        </div>`
+                  }
+                  <div class="fund-participants">${participantLine}</div>
+                  <div class="btn-row">
+                    <button type="button" class="btn btn-primary" data-pledge="${item.id}">
+                      같이 선물하기
+                    </button>
+                    ${
+                      item.product_url
+                        ? `<a class="btn btn-secondary" href="${item.product_url}" target="_blank" rel="noopener">쇼핑몰에서 보기</a>`
+                        : ""
+                    }
+                  </div>
+                </div>
+              `;
+            } else {
+              fundHTML = `
+                <div class="btn-row" style="margin-top:12px">
+                  <button type="button" class="btn btn-primary" data-pledge="${item.id}">
+                    같이 선물하기
+                  </button>
+                </div>
+              `;
+            }
+
             return `
               <article class="item">
-                <div class="thumb">${thumb}</div>
-                <div class="body">
-                  <div class="meta">${mall} · ${cat}</div>
-                  <div class="title">${item.title}</div>
-                  <div class="price">${formatPrice(item.price)}</div>
+                <div class="item-top">
+                  <div class="thumb">${thumb}</div>
+                  <div class="body">
+                    <div class="meta">${mall} · ${cat}</div>
+                    <div class="title">${item.title}</div>
+                    <div class="price">${formatPrice(item.price)}</div>
+                  </div>
                 </div>
+                ${fundHTML}
               </article>
             `;
           })
           .join("");
+
+        content.querySelectorAll("[data-pledge]").forEach((button) => {
+          button.addEventListener("click", () => {
+            const itemId = button.getAttribute("data-pledge");
+            const item = wishItems.find((i) => i.id === itemId);
+            if (item) openPledgeSheet(item);
+          });
+        });
+      }
+
+      function defaultAmounts(item) {
+        const price = item.price || 0;
+        const stats = fundingStats(item);
+        const remaining = stats.remaining ?? price;
+        const options = [];
+
+        if (remaining > 0) {
+          const small = Math.min(50000, remaining);
+          if (small >= 1000) {
+            options.push({ value: small, label: "소액 참여" });
+          }
+          const third = Math.round(remaining / 3 / 1000) * 1000;
+          if (third >= 1000 && third !== small) {
+            options.push({ value: third, label: "1/3 분담" });
+          }
+          options.push({ value: remaining, label: "나머지 전부" });
+        }
+
+        options.push({ value: "custom", label: "직접 입력" });
+        return options.slice(0, 4);
+      }
+
+      async function getSessionUser() {
+        const { data } = await supabase.auth.getSession();
+        return data.session?.user ?? null;
+      }
+
+      function closeSheet() {
+        document.getElementById("overlay").classList.remove("open");
+        activeItem = null;
+      }
+
+      function renderAuthForm(container, errorText) {
+        container.innerHTML = `
+          <div class="auth-tabs">
+            <button type="button" class="auth-tab ${authMode === "signin" ? "on" : ""}" data-auth-mode="signin">로그인</button>
+            <button type="button" class="auth-tab ${authMode === "signup" ? "on" : ""}" data-auth-mode="signup">회원가입</button>
+          </div>
+          ${errorText ? `<div class="form-error">${errorText}</div>` : ""}
+          <div class="field">
+            <label for="authEmail">이메일</label>
+            <input id="authEmail" type="email" autocomplete="email" placeholder="you@example.com" />
+          </div>
+          <div class="field">
+            <label for="authPassword">비밀번호</label>
+            <input id="authPassword" type="password" autocomplete="current-password" placeholder="6자 이상" />
+          </div>
+          <button type="button" class="btn btn-primary" id="authSubmit" style="width:100%">
+            ${authMode === "signin" ? "로그인하고 약속하기" : "가입하고 약속하기"}
+          </button>
+        `;
+
+        container.querySelectorAll("[data-auth-mode]").forEach((tab) => {
+          tab.addEventListener("click", () => {
+            authMode = tab.getAttribute("data-auth-mode");
+            renderAuthForm(container, "");
+          });
+        });
+
+        document.getElementById("authSubmit").addEventListener("click", async () => {
+          const email = document.getElementById("authEmail").value.trim();
+          const password = document.getElementById("authPassword").value;
+          if (!email || !password) {
+            renderAuthForm(container, "이메일과 비밀번호를 입력해 주세요.");
+            return;
+          }
+
+          try {
+            const result =
+              authMode === "signin"
+                ? await supabase.auth.signInWithPassword({ email, password })
+                : await supabase.auth.signUp({ email, password });
+
+            if (result.error) throw result.error;
+            if (!result.data.session && authMode === "signup") {
+              renderAuthForm(
+                container,
+                "가입했어요. 이메일 확인이 필요하면 메일함을 확인한 뒤 로그인해 주세요."
+              );
+              authMode = "signin";
+              return;
+            }
+            await openPledgeSheet(activeItem);
+          } catch (error) {
+            renderAuthForm(container, error.message || String(error));
+          }
+        });
+      }
+
+      function renderPledgeForm(container, user, errorText, successText) {
+        const item = activeItem;
+        const stats = fundingStats(item);
+        const options = defaultAmounts(item);
+        if (selectedAmount == null) {
+          const preferred = options.find((o) => o.value !== "custom");
+          selectedAmount = preferred ? preferred.value : "";
+        }
+
+        const existing = stats.pledges.find(
+          (p) => p.contributor_user_id === user.id
+        );
+
+        container.innerHTML = `
+          <div class="session-bar">로그인: ${user.email}</div>
+          ${successText ? `<div class="form-success">${successText}</div>` : ""}
+          ${errorText ? `<div class="form-error">${errorText}</div>` : ""}
+          ${
+            existing
+              ? `<p class="sheet-sub" style="margin-top:0">이미 남긴 약속이 있어요. 금액을 바꾸면 업데이트됩니다.</p>`
+              : ""
+          }
+          <div class="amount-grid" id="amountGrid">
+            ${options
+              .map((opt) => {
+                const isOn =
+                  opt.value === "custom"
+                    ? selectedAmount === "custom"
+                    : selectedAmount === opt.value;
+                const valText =
+                  opt.value === "custom"
+                    ? "직접 입력"
+                    : formatPrice(opt.value);
+                return `<button type="button" class="amt-chip ${isOn ? "on" : ""}" data-amount="${opt.value}">
+                  <div class="amt-val">${valText}</div>
+                  <div class="amt-label">${opt.label}</div>
+                </button>`;
+              })
+              .join("")}
+          </div>
+          <div class="field" id="customAmountField" style="display:${selectedAmount === "custom" ? "block" : "none"}">
+            <label for="customAmount">금액 (원)</label>
+            <input id="customAmount" type="number" min="1000" step="1000" placeholder="50000" />
+          </div>
+          <div class="field">
+            <label for="pledgeMessage">한마디 (선택)</label>
+            <textarea id="pledgeMessage" placeholder="생일 축하해! 같이 선물해요">${existing?.message || ""}</textarea>
+          </div>
+          <button type="button" class="btn btn-primary" id="submitPledge" style="width:100%;margin-bottom:8px">
+            약속 남기기
+          </button>
+          <p class="sheet-sub" style="margin:0;text-align:center">
+            UC는 결제를 받지 않아요. 실제 송금은 카톡·계좌 등에서 진행해 주세요.
+          </p>
+        `;
+
+        container.querySelectorAll("[data-amount]").forEach((chip) => {
+          chip.addEventListener("click", () => {
+            const raw = chip.getAttribute("data-amount");
+            selectedAmount = raw === "custom" ? "custom" : Number(raw);
+            renderPledgeForm(container, user, "", "");
+          });
+        });
+
+        document.getElementById("submitPledge").addEventListener("click", async () => {
+          let amount = selectedAmount;
+          if (amount === "custom") {
+            amount = Number(document.getElementById("customAmount").value);
+          }
+          const message = document.getElementById("pledgeMessage").value.trim();
+
+          if (!amount || amount < 1000) {
+            renderPledgeForm(container, user, "1,000원 이상 금액을 입력해 주세요.", "");
+            return;
+          }
+
+          if (user.id === ownerProfile.user_id) {
+            renderPledgeForm(container, user, "본인 위시에는 약속할 수 없어요.", "");
+            return;
+          }
+
+          const displayName =
+            user.email?.split("@")[0] || "친구";
+
+          try {
+            const { error } = await supabase.from("funding_pledges").upsert(
+              {
+                item_id: item.id,
+                contributor_user_id: user.id,
+                amount: Math.round(amount),
+                message: message || null,
+                contributor_name: displayName,
+                updated_at: new Date().toISOString(),
+              },
+              { onConflict: "item_id,contributor_user_id" }
+            );
+            if (error) throw error;
+
+            await reloadPledges();
+            renderItems(ownerProfile.display_name, wishItems);
+            renderPledgeForm(
+              container,
+              user,
+              "",
+              `${formatPrice(Math.round(amount))} 약속을 남겼어요!`
+            );
+          } catch (error) {
+            renderPledgeForm(container, user, error.message || String(error), "");
+          }
+        });
+      }
+
+      async function openPledgeSheet(item) {
+        activeItem = item;
+        selectedAmount = null;
+        const overlay = document.getElementById("overlay");
+        const sheetSub = document.getElementById("sheetSub");
+        const sheetBody = document.getElementById("sheetBody");
+
+        document.getElementById("sheetTitle").textContent = "같이 선물하기";
+        sheetSub.textContent = item.title;
+        overlay.classList.add("open");
+
+        const user = await getSessionUser();
+        if (!user) {
+          renderAuthForm(sheetBody, "");
+          return;
+        }
+
+        renderPledgeForm(sheetBody, user, "", "");
+      }
+
+      async function reloadPledges() {
+        if (!wishItems.length) {
+          pledgesByItem = {};
+          return;
+        }
+
+        const ids = wishItems.map((i) => i.id);
+        const { data, error } = await supabase
+          .from("funding_pledges")
+          .select(
+            "id, item_id, contributor_user_id, amount, message, contributor_name, created_at"
+          )
+          .in("item_id", ids)
+          .order("created_at", { ascending: false });
+
+        if (error) throw error;
+
+        pledgesByItem = {};
+        (data || []).forEach((pledge) => {
+          if (!pledgesByItem[pledge.item_id]) {
+            pledgesByItem[pledge.item_id] = [];
+          }
+          pledgesByItem[pledge.item_id].push(pledge);
+        });
       }
 
       async function main() {
         const content = document.getElementById("content");
         const slug = getSlug();
         const config = window.UNIVERSE_CART_CONFIG;
+
+        document.getElementById("closeSheet").addEventListener("click", closeSheet);
+        document.getElementById("overlay").addEventListener("click", (event) => {
+          if (event.target.id === "overlay") closeSheet();
+        });
 
         if (!slug) {
           content.className = "state error";
@@ -186,7 +737,7 @@
           return;
         }
 
-        const supabase = window.supabase.createClient(
+        supabase = window.supabase.createClient(
           config.SUPABASE_URL,
           config.SUPABASE_ANON_KEY
         );
@@ -208,6 +759,8 @@
             return;
           }
 
+          ownerProfile = profile;
+
           const { data: items, error: itemsError } = await supabase
             .from("items")
             .select(
@@ -219,7 +772,9 @@
 
           if (itemsError) throw itemsError;
 
-          renderItems(profile.display_name, items || []);
+          wishItems = items || [];
+          await reloadPledges();
+          renderItems(profile.display_name, wishItems);
         } catch (error) {
           content.className = "state error";
           content.textContent =

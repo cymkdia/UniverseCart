@@ -50,6 +50,9 @@ enum UCColor {
         case .etc: return gray400
         }
     }
+
+    static let funding = Color(hex: "7BAF92")
+    static let fundingText = Color(hex: "3A8C5C")
 }
 
 enum UCLayout {

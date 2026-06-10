@@ -21,6 +21,14 @@ struct PolicyView: View {
                 )
 
                 section(
+                    title: "약속 펀딩",
+                    body: """
+                    친구가 공유 웹에서 금액·메시지로 선물 약속을 남길 수 있습니다. \
+                    Universe Cart는 금전을 받거나 보관하지 않으며, 실제 송금·구매는 앱 밖에서 진행합니다.
+                    """
+                )
+
+                section(
                     title: "외부 링크",
                     body: """
                     「쇼핑몰에서 보기」「결제하기」를 누르면 해당 쇼핑몰(Safari·앱)로 이동합니다. \
