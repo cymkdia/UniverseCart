@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// 위시 상품 상세 — 약속 펀딩 + 코디네이션 (상태별 UI)
+/// 위시 상품 상세 — 약속 펀딩 + 코디네이션 (viewer × state 매트릭스)
 struct FundingPledgeSection: View {
     @Environment(\.openURL) private var openURL
 
@@ -12,6 +12,7 @@ struct FundingPledgeSection: View {
     var currentUserId: UUID?
     var ownerUserId: UUID?
 
+    var onShareWishlist: () -> Void = {}
     var onVolunteerAsBuyer: () -> Void = {}
     var onOpenSettlement: () -> Void = {}
     var onMarkPurchased: () -> Void = {}
@@ -21,7 +22,7 @@ struct FundingPledgeSection: View {
         context.effectiveState
     }
 
-    private var isOwner: Bool {
+    private var viewerIsOwner: Bool {
         guard let currentUserId, let ownerUserId else { return false }
         return currentUserId == ownerUserId
     }
@@ -106,18 +107,48 @@ struct FundingPledgeSection: View {
         context.isGoalMet ? UCColor.fundingSoft : UCColor.border.opacity(0.35)
     }
 
+    private var viewerStatusMessage: String {
+        switch effectiveState {
+        case .collecting:
+            return "친구들의 약속을 모으고 있어요."
+        case .goalReached:
+            if viewerIsOwner {
+                return "친구 한 명이 대표로 구매할 차례예요"
+            }
+            return "약속 금액이 모였어요. 대표 구매자를 정해 주세요."
+        case .buyerAssigned:
+            return "참여자들이 대표에게 송금한 뒤, 대표가 구매해 주세요."
+        case .purchased:
+            if viewerIsOwner {
+                return "곧 선물이 도착해요"
+            }
+            return "대표가 구매를 완료했어요. 선물을 받으면 확인해 주세요."
+        case .received:
+            if viewerIsOwner {
+                return "받은 선물 아카이브에 보관됐어요"
+            }
+            return "선물을 받았어요."
+        }
+    }
+
     @ViewBuilder
     private var stateContent: some View {
-        Text(effectiveState.statusMessage)
+        Text(viewerStatusMessage)
             .font(.footnote)
             .foregroundStyle(UCColor.textSecond)
 
         switch effectiveState {
         case .collecting:
             if context.summary.pledges.isEmpty {
-                Text("아직 약속이 없어요. 위시리스트 링크를 공유해 보세요.")
-                    .font(.footnote)
-                    .foregroundStyle(UCColor.textSecond)
+                if viewerIsOwner {
+                    Text("아직 약속이 없어요. 위시리스트를 공유해 보세요.")
+                        .font(.footnote)
+                        .foregroundStyle(UCColor.textSecond)
+                } else {
+                    Text("아직 약속이 없어요.")
+                        .font(.footnote)
+                        .foregroundStyle(UCColor.textSecond)
+                }
             } else {
                 progressBlock
                 participantList
@@ -126,12 +157,12 @@ struct FundingPledgeSection: View {
         case .goalReached:
             progressBlock
             participantList
-            if isParticipant, !isOwner {
+            if isParticipant, !viewerIsOwner {
                 Text("참여자라면 「내가 대표로 살게요」를 눌러 구매를 맡아 주세요.")
                     .font(.caption)
                     .foregroundStyle(UCColor.fundingText)
-            } else if isOwner {
-                Text("참여자 중 대표 구매자를 기다리는 중이에요.")
+            } else if viewerIsOwner {
+                Text("대표를 기다리고 있어요")
                     .font(.caption)
                     .foregroundStyle(UCColor.textSecond)
             }
@@ -142,7 +173,10 @@ struct FundingPledgeSection: View {
 
         case .received:
             progressBlock
-            if let message = context.record?.thankYouMessage, !message.isEmpty {
+            if !viewerIsOwner,
+               let message = context.record?.thankYouMessage,
+               !message.isEmpty
+            {
                 Text("감사 메시지: \(message)")
                     .font(.caption)
                     .foregroundStyle(UCColor.textSecond)
@@ -154,36 +188,28 @@ struct FundingPledgeSection: View {
     private var actionButtons: some View {
         switch effectiveState {
         case .collecting:
-            pledgeWebButton
+            if viewerIsOwner {
+                ownerCollectingActions
+            } else {
+                friendCollectingActions
+            }
 
         case .goalReached:
-            if isParticipant, !isOwner {
-                UCPrimaryCTA("내가 대표로 살게요", systemImage: "hand.raised") {
+            if !viewerIsOwner, isParticipant {
+                UCFundingCTA("내가 대표로 살게요", systemImage: "hand.raised") {
                     onVolunteerAsBuyer()
                 }
             }
-            pledgeWebButton
 
         case .buyerAssigned:
-            if context.record?.hasSettlementAccount == true {
-                UCPrimaryCTA("정산 안내 보기", systemImage: "wonsign.circle") {
-                    onOpenSettlement()
-                }
-            }
-            if isBuyer {
-                UCSecondaryCTA(title: "구매 완료") {
-                    onMarkPurchased()
-                }
+            if !viewerIsOwner, isBuyer {
+                buyerAssignedActions
             }
 
         case .purchased:
-            if isOwner {
-                UCPrimaryCTA("선물 받음", systemImage: "gift.fill") {
+            if viewerIsOwner {
+                UCFundingCTA("선물 받음", systemImage: "gift.fill") {
                     onMarkReceived()
-                }
-            } else if context.record?.hasSettlementAccount == true {
-                UCSecondaryCTA(title: "정산 안내 보기") {
-                    onOpenSettlement()
                 }
             }
 
@@ -193,15 +219,39 @@ struct FundingPledgeSection: View {
     }
 
     @ViewBuilder
-    private var pledgeWebButton: some View {
+    private var ownerCollectingActions: some View {
+        UCPrimaryCTA("위시리스트 공유하기", systemImage: "square.and.arrow.up") {
+            onShareWishlist()
+        }
+
+        Text("친구들에게 공유해서 함께 모아보세요")
+            .font(.caption)
+            .foregroundStyle(UCColor.textSecond)
+    }
+
+    @ViewBuilder
+    private var friendCollectingActions: some View {
         if isShareEnabled, let pledgeWebURL {
-            UCSecondaryCTA(title: "같이 선물하기") {
+            UCPrimaryCTA("같이 선물하기", systemImage: "gift") {
                 openURL(pledgeWebURL)
             }
         } else if !isShareEnabled {
-            Text("프로필에서 위시리스트 공개를 켜면 같이 선물하기 페이지를 열 수 있어요.")
+            Text("위시리스트 공개가 꺼져 있어 같이 선물하기를 할 수 없어요.")
                 .font(.caption)
                 .foregroundStyle(UCColor.textSecond)
+        }
+    }
+
+    @ViewBuilder
+    private var buyerAssignedActions: some View {
+        if context.record?.hasSettlementAccount == true {
+            UCFundingCTA("정산 안내 보기", systemImage: "wonsign.circle") {
+                onOpenSettlement()
+            }
+        }
+
+        UCFundingCTA("구매 완료") {
+            onMarkPurchased()
         }
     }
 

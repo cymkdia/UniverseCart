@@ -5,7 +5,7 @@ import Supabase
 @Observable
 final class FundingNotificationCenter {
     var notifications: [FundingNotificationRecord] = []
-    var toastMessage: String?
+    var toast: InAppToast?
     var unreadCount: Int = 0
     var isLoading = false
 
@@ -71,7 +71,7 @@ final class FundingNotificationCenter {
     }
 
     func dismissToast() {
-        toastMessage = nil
+        toast = nil
     }
 
     private func presentNewToasts(from fetched: [FundingNotificationRecord]) {
@@ -82,6 +82,6 @@ final class FundingNotificationCenter {
         }
 
         shownToastIDs.insert(newestUnread.id)
-        toastMessage = "\(newestUnread.title)\n\(newestUnread.body)"
+        toast = FundingNotificationDisplay.toast(for: newestUnread)
     }
 }

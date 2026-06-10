@@ -41,6 +41,19 @@ struct UCPrimaryButtonStyle: ButtonStyle {
     }
 }
 
+struct UCFundingButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .font(UCButtonMetrics.labelFont)
+            .foregroundStyle(UCColor.bg)
+            .frame(maxWidth: .infinity)
+            .frame(height: UCButtonMetrics.actionHeight)
+            .background(UCColor.funding)
+            .clipShape(RoundedRectangle(cornerRadius: UCButtonMetrics.cornerRadius))
+            .opacity(configuration.isPressed ? 0.85 : 1)
+    }
+}
+
 struct UCToolbarButton: View {
     let title: String
     let action: () -> Void
@@ -77,6 +90,31 @@ struct UCPrimaryCTA: View {
             }
         }
         .buttonStyle(UCPrimaryButtonStyle())
+    }
+}
+
+struct UCFundingCTA: View {
+    let title: String
+    let systemImage: String?
+    let action: () -> Void
+
+    init(_ title: String, systemImage: String? = nil, action: @escaping () -> Void) {
+        self.title = title
+        self.systemImage = systemImage
+        self.action = action
+    }
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 6) {
+                if let systemImage {
+                    Image(systemName: systemImage)
+                        .font(.subheadline.weight(.semibold))
+                }
+                Text(title)
+            }
+        }
+        .buttonStyle(UCFundingButtonStyle())
     }
 }
 

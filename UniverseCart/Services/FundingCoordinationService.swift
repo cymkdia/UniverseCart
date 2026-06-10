@@ -130,10 +130,10 @@ enum FundingCoordinationService {
             throw FundingCoordinationError.saveFailed
         }
 
-        let body = if let trimmedMessage, !trimmedMessage.isEmpty {
-            "선물을 받았어요. 감사 메시지: \(trimmedMessage)"
+        let participantBody = if let trimmedMessage, !trimmedMessage.isEmpty {
+            "감사 메시지: \(trimmedMessage)"
         } else {
-            "선물을 받았어요. 함께해 주셔서 감사해요!"
+            "함께해 주셔서 감사해요!"
         }
 
         try await createNotifications(
@@ -141,9 +141,9 @@ enum FundingCoordinationService {
             itemId: itemId,
             ownerUserId: ownerUserId,
             kind: .received,
-            title: "선물을 받았어요",
-            ownerBody: body,
-            participantBody: body
+            title: "선물이 도착했어요",
+            ownerBody: "받은 선물 아카이브에 보관됐어요",
+            participantBody: participantBody
         )
 
         return record

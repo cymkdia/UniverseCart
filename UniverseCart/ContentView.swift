@@ -29,8 +29,12 @@ struct ContentView: View {
             }
             .tint(UCColor.textPrimary)
 
-            if let toast = notificationCenter.toastMessage {
-                InAppNotificationBanner(message: toast) {
+            if let toast = notificationCenter.toast {
+                InAppNotificationBanner(
+                    title: toast.title,
+                    subtitle: toast.subtitle,
+                    style: toast.style
+                ) {
                     notificationCenter.dismissToast()
                 }
             }

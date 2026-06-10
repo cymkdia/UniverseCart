@@ -187,8 +187,8 @@ begin
       v_owner,
       p_item_id,
       'goal_reached',
-      '약속 목표 달성',
-      coalesce(v_title, '위시 상품') || ' — 약속 금액이 모두 모였어요.'
+      '100% 달성!',
+      '이제 누가 대표로 살지 정해주세요'
     );
   end if;
 
@@ -210,8 +210,8 @@ begin
         v_contributor,
         p_item_id,
         'goal_reached',
-        '약속 목표 달성',
-        coalesce(v_title, '위시 상품') || ' — 대표 구매자를 정해 주세요.'
+        '100% 달성!',
+        '이제 누가 대표로 살지 정해주세요'
       );
     end if;
   end loop;

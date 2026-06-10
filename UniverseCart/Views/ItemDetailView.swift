@@ -18,6 +18,7 @@ struct ItemDetailView: View {
     @State private var showingVolunteerSheet = false
     @State private var showingSettlement = false
     @State private var showingReceivedSheet = false
+    @State private var showingShareWishlistSheet = false
     @State private var actionErrorMessage: String?
 
     private var canOpenStore: Bool {
@@ -57,6 +58,7 @@ struct ItemDetailView: View {
                             isShareEnabled: shareProfile?.shareEnabled == true,
                             currentUserId: auth.currentUserId(),
                             ownerUserId: ownerUserId,
+                            onShareWishlist: { showingShareWishlistSheet = true },
                             onVolunteerAsBuyer: { showingVolunteerSheet = true },
                             onOpenSettlement: { showingSettlement = true },
                             onMarkPurchased: { Task { await markPurchased() } },
@@ -127,6 +129,9 @@ struct ItemDetailView: View {
             MarkGiftReceivedSheet(itemTitle: item.title) { message in
                 try await markReceived(thankYouMessage: message)
             }
+        }
+        .sheet(isPresented: $showingShareWishlistSheet) {
+            ShareWishlistSheet(shareProfile: $shareProfile)
         }
     }
 
