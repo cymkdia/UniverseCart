@@ -2,6 +2,9 @@
 
 UC는 결제·송금을 **처리하지 않습니다.** 약속 정리 → 카카오페이·토스 **핸드오ff** → 구매·수령 확인까지 이어집니다.
 
+> 전체 MVP 요약: `docs/MVP-1.0-milestone.md`  
+> 약속 펀딩 기본: `docs/M12-pledge-funding-guide.md`
+
 ---
 
 ## 1. Supabase SQL
